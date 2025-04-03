@@ -10,6 +10,7 @@ export function Navbar() {
     { href: "/", label: "Dashboard" },
     { href: "/servicos", label: "Serviços" },
     { href: "/despesas", label: "Despesas" },
+    { href: "/cadastros", label: "Cadastros" },
   ];
 
   return (
