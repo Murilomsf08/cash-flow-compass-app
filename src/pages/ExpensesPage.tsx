@@ -1,7 +1,7 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PageHeader } from "@/components/PageHeader";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,101 +21,187 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { useToast } from "@/components/ui/use-toast";
-import { Plus, Search } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Plus, Search, Edit, Trash, Plus as AddIcon } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 // Mock data (later would come from a real API/database)
 const initialExpenses = [
-  { id: 1, description: "Aluguel Escritório", category: "Fixo", value: 1500, date: "2025-03-10" },
-  { id: 2, description: "Internet", category: "Fixo", value: 200, date: "2025-03-12" },
-  { id: 3, description: "Material de Escritório", category: "Variável", value: 350, date: "2025-03-18" },
-  { id: 4, description: "Energia", category: "Fixo", value: 300, date: "2025-03-20" },
-  { id: 5, description: "Jantar com Cliente", category: "Variável", value: 250, date: "2025-04-01" },
+  { id: 1, description: "Aluguel Escritório", category: "Fixo", value: 1500, date: "2025-03-10", status: "Pago" },
+  { id: 2, description: "Internet", category: "Fixo", value: 200, date: "2025-03-12", status: "Pago" },
+  { id: 3, description: "Material de Escritório", category: "Variável", value: 350, date: "2025-03-18", status: "Pendente" },
+  { id: 4, description: "Energia", category: "Fixo", value: 300, date: "2025-03-20", status: "Pago" },
+  { id: 5, description: "Jantar com Cliente", category: "Variável", value: 250, date: "2025-04-01", status: "Pendente" },
 ];
 
-const categories = ["Fixo", "Variável", "Investimento", "Pessoal", "Impostos"];
+// Initial categories list
+const initialCategories = ["Fixo", "Variável", "Investimento", "Pessoal", "Impostos"];
+
+// Status options
+const statusOptions = ["Pago", "Pendente", "Cancelado"];
 
 export default function ExpensesPage() {
   const { toast } = useToast();
   const [expenses, setExpenses] = useState(initialExpenses);
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
+  const [categories, setCategories] = useState(initialCategories);
+  const [newCategory, setNewCategory] = useState("");
+  const [totalExpensesValue, setTotalExpensesValue] = useState(0);
+  const [totalExpensesCount, setTotalExpensesCount] = useState(0);
   
-  // Form state
-  const [newExpense, setNewExpense] = useState({
-    description: "",
-    category: "",
-    value: "",
-    date: ""
-  });
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setNewExpense({
-      ...newExpense,
-      [name]: value
+  // Multiple expenses management
+  const [expenseItems, setExpenseItems] = useState([
+    { id: 1, description: "", category: "", value: "", date: "" }
+  ]);
+  
+  const handleAddExpenseItem = () => {
+    setExpenseItems([
+      ...expenseItems,
+      { 
+        id: expenseItems.length + 1, 
+        description: "", 
+        category: "", 
+        value: "", 
+        date: "" 
+      }
+    ]);
+  };
+  
+  const handleRemoveExpenseItem = (id) => {
+    if (expenseItems.length > 1) {
+      setExpenseItems(expenseItems.filter(item => item.id !== id));
+    } else {
+      toast({
+        title: "Aviso",
+        description: "Você precisa ter pelo menos um item de despesa.",
+        variant: "default"
+      });
+    }
+  };
+  
+  const handleExpenseItemChange = (id, field, value) => {
+    const updatedItems = expenseItems.map(item => {
+      if (item.id === id) {
+        return { ...item, [field]: value };
+      }
+      return item;
     });
+    
+    setExpenseItems(updatedItems);
   };
 
-  const handleCategoryChange = (value: string) => {
-    setNewExpense({
-      ...newExpense,
-      category: value
-    });
-  };
-
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
   };
+
+  // Calculate totals
+  useEffect(() => {
+    const total = expenses.reduce((sum, expense) => sum + expense.value, 0);
+    setTotalExpensesValue(total);
+    setTotalExpensesCount(expenses.length);
+  }, [expenses]);
 
   const filteredExpenses = expenses.filter(expense => 
     expense.description.toLowerCase().includes(searchTerm.toLowerCase()) || 
     expense.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleAddExpense = () => {
+  const handleAddExpenses = () => {
     // Form validation
-    if (!newExpense.description || !newExpense.category || !newExpense.value || !newExpense.date) {
+    const invalidItems = expenseItems.filter(
+      item => !item.description || !item.category || !item.value || !item.date
+    );
+    
+    if (invalidItems.length > 0) {
       toast({
         title: "Campos obrigatórios",
-        description: "Por favor, preencha todos os campos obrigatórios.",
+        description: "Por favor, preencha todos os campos obrigatórios em todos os itens.",
         variant: "destructive"
       });
       return;
     }
 
-    const value = parseFloat(newExpense.value);
-
-    if (isNaN(value) || value <= 0) {
+    // Validate values
+    const invalidValues = expenseItems.filter(
+      item => isNaN(parseFloat(item.value)) || parseFloat(item.value) <= 0
+    );
+    
+    if (invalidValues.length > 0) {
       toast({
-        title: "Valor inválido",
-        description: "O valor da despesa deve ser um número positivo.",
+        title: "Valores inválidos",
+        description: "O valor da despesa deve ser um número positivo em todos os itens.",
         variant: "destructive"
       });
       return;
     }
 
-    // Add new expense
-    const newExpenseData = {
-      id: expenses.length + 1,
-      description: newExpense.description,
-      category: newExpense.category,
-      value: value,
-      date: newExpense.date
-    };
+    // Add new expenses
+    const newExpenses = expenseItems.map((item, index) => ({
+      id: expenses.length + index + 1,
+      description: item.description,
+      category: item.category,
+      value: parseFloat(item.value),
+      date: item.date,
+      status: "Pendente" // Default status
+    }));
 
-    setExpenses([...expenses, newExpenseData]);
+    setExpenses([...expenses, ...newExpenses]);
     setIsDialogOpen(false);
-    setNewExpense({
-      description: "",
-      category: "",
-      value: "",
-      date: ""
-    });
+    setExpenseItems([
+      { id: 1, description: "", category: "", value: "", date: "" }
+    ]);
 
     toast({
-      title: "Despesa registrada",
-      description: "A despesa foi adicionada com sucesso."
+      title: `${newExpenses.length > 1 ? 'Despesas registradas' : 'Despesa registrada'}`,
+      description: `${newExpenses.length > 1 ? 'As despesas foram adicionadas' : 'A despesa foi adicionada'} com sucesso.`
+    });
+  };
+
+  const handleAddCategory = () => {
+    if (!newCategory.trim()) {
+      toast({
+        title: "Campo obrigatório",
+        description: "Por favor, informe um nome para a categoria.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (categories.includes(newCategory.trim())) {
+      toast({
+        title: "Categoria existente",
+        description: "Esta categoria já existe na lista.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setCategories([...categories, newCategory.trim()]);
+    setNewCategory("");
+    setIsCategoryDialogOpen(false);
+
+    toast({
+      title: "Categoria adicionada",
+      description: "A categoria foi adicionada com sucesso."
+    });
+  };
+
+  const handleStatusChange = (id, newStatus) => {
+    const updatedExpenses = expenses.map(expense => {
+      if (expense.id === id) {
+        return { ...expense, status: newStatus };
+      }
+      return expense;
+    });
+    
+    setExpenses(updatedExpenses);
+    
+    toast({
+      title: "Status atualizado",
+      description: `O status da despesa foi alterado para ${newStatus}.`
     });
   };
 
@@ -125,6 +211,35 @@ export default function ExpensesPage() {
         title="Registro de Despesas" 
         description="Cadastre e visualize suas despesas" 
       />
+
+      {/* Summary Cards */}
+      <div className="grid gap-4 md:grid-cols-2 mb-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total de Despesas</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              R$ {totalExpensesValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Valor total de todas as despesas
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Quantidade de Despesas</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalExpensesCount}</div>
+            <p className="text-xs text-muted-foreground">
+              Número total de despesas registradas
+            </p>
+          </CardContent>
+        </Card>
+      </div>
 
       <div className="flex items-center justify-between mb-6">
         <div className="relative w-full max-w-sm">
@@ -137,9 +252,14 @@ export default function ExpensesPage() {
             onChange={handleSearchChange}
           />
         </div>
-        <Button onClick={() => setIsDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" /> Nova Despesa
-        </Button>
+        <div className="flex space-x-2">
+          <Button onClick={() => setIsCategoryDialogOpen(true)} variant="outline">
+            <Plus className="mr-2 h-4 w-4" /> Nova Categoria
+          </Button>
+          <Button onClick={() => setIsDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" /> Nova Despesa
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -150,6 +270,7 @@ export default function ExpensesPage() {
                 <TableHead>Data</TableHead>
                 <TableHead>Descrição</TableHead>
                 <TableHead>Categoria</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead className="text-right">Valor</TableHead>
               </TableRow>
             </TableHeader>
@@ -162,6 +283,36 @@ export default function ExpensesPage() {
                     </TableCell>
                     <TableCell>{expense.description}</TableCell>
                     <TableCell>{expense.category}</TableCell>
+                    <TableCell>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="ghost" className="h-8 p-2">
+                            <Badge 
+                              variant={
+                                expense.status === "Pago" ? "default" : 
+                                expense.status === "Pendente" ? "secondary" : "destructive"
+                              }
+                            >
+                              {expense.status}
+                            </Badge>
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-40 p-2">
+                          <div className="grid gap-2">
+                            {statusOptions.map((status) => (
+                              <Button 
+                                key={status} 
+                                variant="ghost" 
+                                className="justify-start text-sm"
+                                onClick={() => handleStatusChange(expense.id, status)}
+                              >
+                                {status}
+                              </Button>
+                            ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </TableCell>
                     <TableCell className="text-right">
                       R$ {expense.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </TableCell>
@@ -169,7 +320,7 @@ export default function ExpensesPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={4} className="h-24 text-center">
+                  <TableCell colSpan={5} className="h-24 text-center">
                     Nenhuma despesa encontrada.
                   </TableCell>
                 </TableRow>
@@ -179,63 +330,115 @@ export default function ExpensesPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      {/* Add Category Dialog */}
+      <Dialog open={isCategoryDialogOpen} onOpenChange={setIsCategoryDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Adicionar Nova Despesa</DialogTitle>
+            <DialogTitle>Nova Categoria de Despesa</DialogTitle>
+            <DialogDescription>
+              Adicione uma nova categoria para classificar suas despesas.
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="description">Descrição *</Label>
+              <Label htmlFor="category-name">Nome da Categoria *</Label>
               <Input 
-                id="description" 
-                name="description" 
-                value={newExpense.description}
-                onChange={handleInputChange}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="category">Categoria *</Label>
-              <Select
-                value={newExpense.category}
-                onValueChange={handleCategoryChange}
-              >
-                <SelectTrigger id="category">
-                  <SelectValue placeholder="Selecione uma categoria" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map(category => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="value">Valor (R$) *</Label>
-              <Input 
-                id="value" 
-                name="value" 
-                type="number"
-                value={newExpense.value}
-                onChange={handleInputChange}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="date">Data *</Label>
-              <Input 
-                id="date" 
-                name="date" 
-                type="date"
-                value={newExpense.date}
-                onChange={handleInputChange}
+                id="category-name" 
+                value={newCategory}
+                onChange={(e) => setNewCategory(e.target.value)}
               />
             </div>
           </div>
           <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCategoryDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleAddCategory}>Adicionar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Expense Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-[625px]">
+          <DialogHeader>
+            <DialogTitle>Adicionar Nova Despesa</DialogTitle>
+            <DialogDescription>
+              Preencha os detalhes da despesa. Você pode adicionar múltiplas despesas de uma vez.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2">
+            {expenseItems.map((item, index) => (
+              <Card key={item.id} className="p-4">
+                <div className="flex justify-between items-center mb-4">
+                  <CardTitle className="text-lg">Item {index + 1}</CardTitle>
+                  {expenseItems.length > 1 && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => handleRemoveExpenseItem(item.id)}
+                    >
+                      <Trash className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+                <div className="grid gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor={`description-${item.id}`}>Descrição *</Label>
+                    <Input 
+                      id={`description-${item.id}`}
+                      value={item.description}
+                      onChange={(e) => handleExpenseItemChange(item.id, 'description', e.target.value)}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor={`category-${item.id}`}>Categoria *</Label>
+                    <Select
+                      value={item.category}
+                      onValueChange={(value) => handleExpenseItemChange(item.id, 'category', value)}
+                    >
+                      <SelectTrigger id={`category-${item.id}`}>
+                        <SelectValue placeholder="Selecione uma categoria" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map(category => (
+                          <SelectItem key={category} value={category}>
+                            {category}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor={`value-${item.id}`}>Valor (R$) *</Label>
+                    <Input 
+                      id={`value-${item.id}`}
+                      type="number"
+                      value={item.value}
+                      onChange={(e) => handleExpenseItemChange(item.id, 'value', e.target.value)}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor={`date-${item.id}`}>Data *</Label>
+                    <Input 
+                      id={`date-${item.id}`}
+                      type="date"
+                      value={item.date}
+                      onChange={(e) => handleExpenseItemChange(item.id, 'date', e.target.value)}
+                    />
+                  </div>
+                </div>
+              </Card>
+            ))}
+            <Button 
+              variant="outline" 
+              className="w-full"
+              onClick={handleAddExpenseItem}
+            >
+              <AddIcon className="mr-2 h-4 w-4" /> Adicionar Outro Item
+            </Button>
+          </div>
+          <DialogFooter>
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleAddExpense}>Salvar</Button>
+            <Button onClick={handleAddExpenses}>Salvar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
