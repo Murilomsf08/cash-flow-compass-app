@@ -10,7 +10,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { useIsMobile } from "@/hooks/use-mobile";
 
 interface DateRangePickerProps {
   dateRange: {
@@ -26,8 +25,6 @@ export function DateRangePicker({
   onDateRangeChange, 
   className 
 }: DateRangePickerProps) {
-  const isMobile = useIsMobile();
-  
   return (
     <div className={cn("grid gap-2", className)}>
       <Popover>
@@ -36,38 +33,33 @@ export function DateRangePicker({
             id="date"
             variant="outline"
             className={cn(
-              "w-full justify-start text-left font-normal",
+              "w-[300px] justify-start text-left font-normal",
               !dateRange && "text-muted-foreground"
             )}
           >
-            <CalendarRange className="mr-2 h-4 w-4 shrink-0" />
+            <CalendarRange className="mr-2 h-4 w-4" />
             {dateRange?.from ? (
               dateRange.to ? (
-                <span className="truncate text-xs sm:text-sm">
-                  {format(dateRange.from, "dd/MM/yy")} - {format(dateRange.to, "dd/MM/yy")}
-                </span>
+                <>
+                  Entre {format(dateRange.from, "dd/MM/yyyy")} e {format(dateRange.to, "dd/MM/yyyy")}
+                </>
               ) : (
-                <span className="truncate text-xs sm:text-sm">
-                  {format(dateRange.from, "dd/MM/yyyy")}
-                </span>
+                format(dateRange.from, "dd/MM/yyyy")
               )
             ) : (
-              <span className="text-xs sm:text-sm">Selecione período</span>
+              <span>Selecione um período</span>
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className={cn(
-          "w-auto p-0",
-          isMobile ? "max-w-[calc(100vw-24px)]" : ""
-        )} align="start">
+        <PopoverContent className="w-auto p-0" align="start">
           <Calendar
             initialFocus
             mode="range"
             defaultMonth={dateRange?.from}
             selected={dateRange}
             onSelect={onDateRangeChange}
-            numberOfMonths={isMobile ? 1 : 2}
-            className="p-3 pointer-events-auto"
+            numberOfMonths={2}
+            className={cn("p-3 pointer-events-auto")}
           />
         </PopoverContent>
       </Popover>

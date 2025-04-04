@@ -71,82 +71,8 @@
   * {
     @apply border-border;
   }
-  
-  html, body {
-    @apply overflow-x-hidden max-w-[100vw];
-    -webkit-overflow-scrolling: touch;
-  }
-  
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
-  
-  /* Mobile-specific adjustments */
-  @media (max-width: 640px) {
-    .table-responsive {
-      @apply block w-full overflow-x-auto -mx-1 px-1;
-    }
-    
-    .truncate-mobile {
-      @apply truncate max-w-[180px];
-    }
-    
-    /* Smaller padding for mobile forms */
-    .form-container {
-      @apply px-2 py-2;
-    }
-    
-    /* Adjust charts for mobile */
-    .chart-container {
-      @apply h-64 max-w-full;
-    }
-    
-    /* Force tables to be scrollable on mobile */
-    .mobile-table-container {
-      @apply w-full overflow-x-auto pb-2;
-    }
-    
-    /* Adjust dropdown content position for mobile */
-    .dropdown-adjust {
-      @apply right-0 left-auto;
-    }
-    
-    /* Reduce card padding on mobile */
-    .card-mobile {
-      @apply px-2 py-2;
-    }
-  }
-}
-
-/* Responsive utility classes */
-.responsive-container {
-  @apply w-full px-2 md:px-4;
-}
-
-.responsive-grid {
-  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4;
-}
-
-.card-responsive {
-  @apply w-full overflow-hidden;
-}
-
-/* Table specific adjustments */
-.table-container {
-  @apply overflow-x-auto w-full;
-}
-
-/* Mobile form styling */
-.mobile-form-layout {
-  @apply flex flex-col gap-4 w-full;
-}
-
-.mobile-form-row {
-  @apply flex flex-col sm:flex-row gap-2 w-full;
-}
-
-/* Chart responsiveness */
-.responsive-chart {
-  @apply w-full max-w-full h-[300px] sm:h-[400px];
 }
