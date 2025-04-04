@@ -5,7 +5,25 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { 
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+} from "@/components/ui/command";
+import { 
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue
+} from "@/components/ui/select";
 import { 
   Table, 
   TableBody, 
@@ -15,7 +33,17 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, FileText, Printer, Copy, Edit, Check, X } from "lucide-react";
+import { 
+  Plus, 
+  Search, 
+  FileText, 
+  Printer, 
+  Copy, 
+  Check, 
+  X, 
+  ChevronsUpDown, 
+  MoreVertical 
+} from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -26,6 +54,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 // Mock data - later would come from a real API/database
 const initialServices = [
@@ -78,6 +107,8 @@ export default function ServicesPage() {
   const [selectedClient, setSelectedClient] = useState("");
   const [selectedSeller, setSelectedSeller] = useState("");
   const [lineItems, setLineItems] = useState([{ id: 1, product: "", quantity: 1, unitPrice: 0, total: 0 }]);
+  const [openClientCombobox, setOpenClientCombobox] = useState(false);
+  const [openSellerCombobox, setOpenSellerCombobox] = useState(false);
   
   // New client form state
   const [newClient, setNewClient] = useState({
@@ -379,7 +410,7 @@ export default function ServicesPage() {
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" className="h-8 w-8 p-0">
                             <span className="sr-only">Abrir menu</span>
-                            <Edit className="h-4 w-4" />
+                            <MoreVertical className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
@@ -423,18 +454,47 @@ export default function ServicesPage() {
               <div className="grid gap-2">
                 <Label htmlFor="client">Cliente *</Label>
                 <div className="flex gap-2">
-                  <Select value={selectedClient} onValueChange={setSelectedClient}>
-                    <SelectTrigger id="client" className="w-full">
-                      <SelectValue placeholder="Selecione o cliente" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {clients.map(client => (
-                        <SelectItem key={client.id} value={client.id.toString()}>
-                          {client.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Popover open={openClientCombobox} onOpenChange={setOpenClientCombobox}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={openClientCombobox}
+                        className="w-full justify-between"
+                      >
+                        {selectedClient
+                          ? clients.find((client) => client.id.toString() === selectedClient)?.name
+                          : "Selecione o cliente"}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0">
+                      <Command>
+                        <CommandInput placeholder="Buscar cliente..." />
+                        <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+                        <CommandGroup>
+                          {clients.map((client) => (
+                            <CommandItem
+                              key={client.id}
+                              value={client.name}
+                              onSelect={() => {
+                                setSelectedClient(client.id.toString());
+                                setOpenClientCombobox(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedClient === client.id.toString() ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {client.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                   <Button type="button" variant="outline" onClick={() => setIsClientDialogOpen(true)}>
                     <Plus className="h-4 w-4" />
                   </Button>
@@ -442,18 +502,47 @@ export default function ServicesPage() {
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="seller">Vendedor</Label>
-                <Select value={selectedSeller} onValueChange={setSelectedSeller}>
-                  <SelectTrigger id="seller">
-                    <SelectValue placeholder="Selecione o vendedor (opcional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sellers.map(seller => (
-                      <SelectItem key={seller.id} value={seller.id.toString()}>
-                        {seller.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={openSellerCombobox} onOpenChange={setOpenSellerCombobox}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={openSellerCombobox}
+                      className="w-full justify-between"
+                    >
+                      {selectedSeller
+                        ? sellers.find((seller) => seller.id.toString() === selectedSeller)?.name
+                        : "Selecione o vendedor (opcional)"}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0">
+                    <Command>
+                      <CommandInput placeholder="Buscar vendedor..." />
+                      <CommandEmpty>Nenhum vendedor encontrado.</CommandEmpty>
+                      <CommandGroup>
+                        {sellers.map((seller) => (
+                          <CommandItem
+                            key={seller.id}
+                            value={seller.name}
+                            onSelect={() => {
+                              setSelectedSeller(seller.id.toString());
+                              setOpenSellerCombobox(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                selectedSeller === seller.id.toString() ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {seller.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
 

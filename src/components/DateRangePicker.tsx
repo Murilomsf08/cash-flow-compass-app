@@ -41,7 +41,7 @@ export function DateRangePicker({
             {dateRange?.from ? (
               dateRange.to ? (
                 <>
-                  {format(dateRange.from, "dd/MM/yyyy")} - {format(dateRange.to, "dd/MM/yyyy")}
+                  Entre {format(dateRange.from, "dd/MM/yyyy")} e {format(dateRange.to, "dd/MM/yyyy")}
                 </>
               ) : (
                 format(dateRange.from, "dd/MM/yyyy")

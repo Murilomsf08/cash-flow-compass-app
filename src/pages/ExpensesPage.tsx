@@ -21,10 +21,18 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { useToast } from "@/components/ui/use-toast";
-import { Plus, Search, Edit, Trash, Plus as AddIcon } from "lucide-react";
+import { Plus, Search, Edit, Trash, Plus as AddIcon, MoreVertical } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 // Mock data (later would come from a real API/database)
 const initialExpenses = [
@@ -47,6 +55,10 @@ export default function ExpensesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingExpense, setEditingExpense] = useState(null);
+  const [expenseToDelete, setExpenseToDelete] = useState(null);
   const [categories, setCategories] = useState(initialCategories);
   const [newCategory, setNewCategory] = useState("");
   const [totalExpensesValue, setTotalExpensesValue] = useState(0);
@@ -204,6 +216,44 @@ export default function ExpensesPage() {
       description: `O status da despesa foi alterado para ${newStatus}.`
     });
   };
+  
+  const handleDeleteExpense = (expense) => {
+    setExpenseToDelete(expense);
+    setIsDeleteDialogOpen(true);
+  };
+  
+  const confirmDeleteExpense = () => {
+    if (!expenseToDelete) return;
+    
+    setExpenses(expenses.filter(expense => expense.id !== expenseToDelete.id));
+    setIsDeleteDialogOpen(false);
+    setExpenseToDelete(null);
+    
+    toast({
+      title: "Despesa excluída",
+      description: "A despesa foi removida com sucesso."
+    });
+  };
+  
+  const handleEditExpense = (expense) => {
+    setEditingExpense(expense);
+    setIsEditDialogOpen(true);
+  };
+  
+  const handleUpdateExpense = () => {
+    if (!editingExpense) return;
+    
+    setExpenses(expenses.map(expense => 
+      expense.id === editingExpense.id ? editingExpense : expense
+    ));
+    
+    setIsEditDialogOpen(false);
+    
+    toast({
+      title: "Despesa atualizada",
+      description: "As alterações foram salvas com sucesso."
+    });
+  };
 
   return (
     <div>
@@ -272,6 +322,7 @@ export default function ExpensesPage() {
                 <TableHead>Categoria</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Valor</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -316,11 +367,36 @@ export default function ExpensesPage() {
                     <TableCell className="text-right">
                       R$ {expense.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Abrir menu</span>
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Ações</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => handleEditExpense(expense)}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            <span>Editar</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => handleDeleteExpense(expense)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash className="mr-2 h-4 w-4" />
+                            <span>Excluir</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center">
+                  <TableCell colSpan={6} className="h-24 text-center">
                     Nenhuma despesa encontrada.
                   </TableCell>
                 </TableRow>
@@ -352,6 +428,86 @@ export default function ExpensesPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCategoryDialogOpen(false)}>Cancelar</Button>
             <Button onClick={handleAddCategory}>Adicionar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Edit Expense Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Editar Despesa</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="description">Descrição</Label>
+              <Input
+                id="description"
+                value={editingExpense?.description || ""}
+                onChange={(e) => setEditingExpense({...editingExpense, description: e.target.value})}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="category">Categoria</Label>
+              <Select
+                value={editingExpense?.category || ""}
+                onValueChange={(value) => setEditingExpense({...editingExpense, category: value})}
+              >
+                <SelectTrigger id="category">
+                  <SelectValue placeholder="Selecione uma categoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map(category => (
+                    <SelectItem key={category} value={category}>
+                      {category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="value">Valor (R$)</Label>
+              <Input
+                id="value"
+                type="number"
+                step="0.01"
+                value={editingExpense?.value || ""}
+                onChange={(e) => setEditingExpense({...editingExpense, value: parseFloat(e.target.value) || 0})}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="date">Data</Label>
+              <Input
+                id="date"
+                type="date"
+                value={editingExpense?.date || ""}
+                onChange={(e) => setEditingExpense({...editingExpense, date: e.target.value})}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleUpdateExpense}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Confirmar Exclusão</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja excluir esta despesa? Esta ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="font-medium">{expenseToDelete?.description}</p>
+            <p className="text-muted-foreground">R$ {expenseToDelete?.value?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>Cancelar</Button>
+            <Button variant="destructive" onClick={confirmDeleteExpense}>Excluir</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

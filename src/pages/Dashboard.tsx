@@ -14,6 +14,9 @@ import {
   PieChart,
   Legend,
   CartesianGrid,
+  Line,
+  LineChart,
+  Label,
 } from "recharts";
 import { useToast } from "@/components/ui/use-toast";
 import {
@@ -24,6 +27,7 @@ import {
   CalendarRange,
   ShoppingCart,
   Percent,
+  Filter,
 } from "lucide-react";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import {
@@ -36,17 +40,34 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { addDays, format, isAfter, isBefore, isWithinInterval, parseISO } from "date-fns";
+import { 
+  addDays, 
+  format, 
+  isAfter, 
+  isBefore, 
+  isWithinInterval, 
+  parseISO,
+  differenceInDays,
+  subDays,
+} from "date-fns";
+import { Button } from "@/components/ui/button";
+import { 
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 
 // Mock data (later would come from a real API/database)
 const mockServices = [
-  { id: 1, name: "Consultoria", client: "Empresa A", value: 2500, date: "2025-03-15", commission: 250, status: "Concluído", paymentType: "Cartão", quantity: 1 },
-  { id: 2, name: "Desenvolvimento Web", client: "Empresa B", value: 5000, date: "2025-03-20", commission: 500, status: "Concluído", paymentType: "Transferência", quantity: 1 },
-  { id: 3, name: "Design Gráfico", client: "Pessoa C", value: 1200, date: "2025-03-25", commission: 120, status: "Concluído", paymentType: "Dinheiro", quantity: 1 },
-  { id: 4, name: "Suporte Técnico", client: "Empresa A", value: 800, date: "2025-04-01", commission: 80, status: "Pendente", paymentType: "Boleto", quantity: 1 },
-  { id: 5, name: "Consultoria", client: "Pessoa D", value: 3000, date: "2025-04-02", commission: 300, status: "Pendente", paymentType: "Cartão", quantity: 1 },
-  { id: 6, name: "Desenvolvimento Web", client: "Empresa E", value: 4500, date: "2025-04-05", commission: 450, status: "Concluído", paymentType: "Transferência", quantity: 1 },
-  { id: 7, name: "Design Gráfico", client: "Pessoa F", value: 950, date: "2025-04-10", commission: 95, status: "Concluído", paymentType: "Cartão", quantity: 1 },
+  { id: 1, name: "Consultoria", client: "Empresa A", value: 2500, date: "2025-03-15", commission: 250, status: "Concluído", paymentType: "Cartão", quantity: 1, seller: "Carlos Silva", lastPurchase: "2025-03-15" },
+  { id: 2, name: "Desenvolvimento Web", client: "Empresa B", value: 5000, date: "2025-03-20", commission: 500, status: "Concluído", paymentType: "Transferência", quantity: 1, seller: "Ana Martins", lastPurchase: "2025-03-20" },
+  { id: 3, name: "Design Gráfico", client: "Pessoa C", value: 1200, date: "2025-03-25", commission: 120, status: "Concluído", paymentType: "Dinheiro", quantity: 1, seller: "João Santos", lastPurchase: "2025-01-10" },
+  { id: 4, name: "Suporte Técnico", client: "Empresa A", value: 800, date: "2025-04-01", commission: 80, status: "Pendente", paymentType: "Boleto", quantity: 1, seller: "Maria Souza", lastPurchase: "2025-01-05" },
+  { id: 5, name: "Consultoria", client: "Pessoa D", value: 3000, date: "2025-04-02", commission: 300, status: "Pendente", paymentType: "Cartão", quantity: 1, seller: "Carlos Silva", lastPurchase: "2025-02-18" },
+  { id: 6, name: "Desenvolvimento Web", client: "Empresa E", value: 4500, date: "2025-04-05", commission: 450, status: "Concluído", paymentType: "Transferência", quantity: 1, seller: "Ana Martins", lastPurchase: "2024-12-20" },
+  { id: 7, name: "Design Gráfico", client: "Pessoa F", value: 950, date: "2025-04-10", commission: 95, status: "Concluído", paymentType: "Cartão", quantity: 1, seller: "João Santos", lastPurchase: "2024-12-15" },
 ];
 
 const mockExpenses = [
@@ -69,7 +90,8 @@ const allTransactions = [
     value: service.value,
     paymentType: service.paymentType,
     status: service.status,
-    type: "Receita"
+    type: "Receita",
+    seller: service.seller
   })),
   ...mockExpenses.map(expense => ({
     id: `e-${expense.id}`,
@@ -98,6 +120,8 @@ export default function Dashboard() {
   const [expenseCategoryData, setExpenseCategoryData] = useState<any[]>([]);
   const [monthlyData, setMonthlyData] = useState<any[]>([]);
   const [filteredTransactions, setFilteredTransactions] = useState(allTransactions);
+  const [sellerData, setSellerData] = useState<any[]>([]);
+  const [inactiveClientsData, setInactiveClientsData] = useState<any[]>([]);
   
   // Date range state
   const [dateRange, setDateRange] = useState<{
@@ -107,6 +131,12 @@ export default function Dashboard() {
     from: addDays(new Date(), -30),
     to: new Date(),
   });
+  
+  // Filter states
+  const [showIncomes, setShowIncomes] = useState(true);
+  const [showExpenses, setShowExpenses] = useState(true);
+  const [showPending, setShowPending] = useState(true);
+  const [showCompleted, setShowCompleted] = useState(true);
 
   // Filter data based on date range
   const filterDataByDateRange = (data: any[], dateField: string) => {
@@ -121,11 +151,32 @@ export default function Dashboard() {
     });
   };
 
+  // Apply all filters
+  const applyAllFilters = (data: any[]) => {
+    let result = filterDataByDateRange(data, 'date');
+    
+    // Filter by transaction type (income/expense)
+    result = result.filter(item => {
+      if (item.type === "Receita" && !showIncomes) return false;
+      if (item.type === "Despesa" && !showExpenses) return false;
+      return true;
+    });
+    
+    // Filter by status
+    result = result.filter(item => {
+      if (item.status === "Pendente" && !showPending) return false;
+      if (item.status === "Concluído" && !showCompleted) return false;
+      return true;
+    });
+    
+    return result;
+  };
+
   useEffect(() => {
-    // Filter data based on date range
-    const filteredServices = filterDataByDateRange(mockServices, 'date');
-    const filteredExpenses = filterDataByDateRange(mockExpenses, 'date');
-    const updatedTransactions = filterDataByDateRange(allTransactions, 'date');
+    // Apply all filters to the data
+    const filteredServices = applyAllFilters(mockServices.map(s => ({...s, type: "Receita"})));
+    const filteredExpenses = applyAllFilters(mockExpenses.map(e => ({...e, type: "Despesa"})));
+    const updatedTransactions = applyAllFilters(allTransactions);
     setFilteredTransactions(updatedTransactions);
 
     // Calculate metrics
@@ -223,13 +274,70 @@ export default function Dashboard() {
     }));
     
     setMonthlyData(monthlyChartData.sort((a, b) => a.month.localeCompare(b.month)));
+    
+    // Prepare seller data
+    const sellerMap = new Map();
+    filteredServices.forEach(service => {
+      const current = sellerMap.get(service.seller) || { value: 0, profit: 0, count: 0 };
+      sellerMap.set(service.seller, {
+        value: current.value + service.value,
+        profit: current.profit + (service.value - service.commission),
+        count: current.count + 1
+      });
+    });
+    
+    const sellerChartData = Array.from(sellerMap.entries()).map(([name, data]) => ({
+      name,
+      faturamento: data.value,
+      lucro: data.profit,
+      count: data.count
+    }));
+    setSellerData(sellerChartData);
+    
+    // Prepare inactive clients data (haven't returned in 60+ days)
+    const today = new Date();
+    const inactiveClients: any[] = [];
+    
+    // Create a map to find the most recent purchase date per client
+    const clientLastPurchaseMap = new Map();
+    mockServices.forEach(service => {
+      const currentLastPurchase = clientLastPurchaseMap.get(service.client);
+      const serviceDate = parseISO(service.date);
+      
+      if (!currentLastPurchase || isAfter(serviceDate, parseISO(currentLastPurchase))) {
+        clientLastPurchaseMap.set(service.client, service.date);
+      }
+    });
+    
+    // Check which clients haven't returned in 60+ days
+    clientLastPurchaseMap.forEach((lastPurchaseDate, clientName) => {
+      const lastPurchaseDateObj = parseISO(lastPurchaseDate);
+      const daysSinceLastPurchase = differenceInDays(today, lastPurchaseDateObj);
+      
+      if (daysSinceLastPurchase >= 60) {
+        // Get total spent by this client
+        const clientServices = mockServices.filter(service => service.client === clientName);
+        const totalSpent = clientServices.reduce((sum, service) => sum + service.value, 0);
+        const purchaseCount = clientServices.length;
+        
+        inactiveClients.push({
+          name: clientName,
+          lastPurchase: lastPurchaseDate,
+          daysSinceLastPurchase,
+          totalSpent,
+          purchaseCount
+        });
+      }
+    });
+    
+    setInactiveClientsData(inactiveClients.sort((a, b) => b.daysSinceLastPurchase - a.daysSinceLastPurchase));
 
     // Show toast when date range changes
     toast({
       title: "Dashboard Atualizado",
       description: `Dados filtrados de ${format(dateRange.from, 'dd/MM/yyyy')} até ${dateRange.to ? format(dateRange.to, 'dd/MM/yyyy') : 'hoje'}.`,
     });
-  }, [toast, dateRange]);
+  }, [toast, dateRange, showIncomes, showExpenses, showPending, showCompleted]);
 
   // Generate colors for the pie charts
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82ca9d', '#ffc658'];
@@ -241,10 +349,62 @@ export default function Dashboard() {
           title="Dashboard" 
           description="Visualize os principais indicadores financeiros do seu negócio"
         />
-        <DateRangePicker
-          dateRange={dateRange}
-          onDateRangeChange={setDateRange}
-        />
+        <div className="flex items-center gap-2">
+          <DateRangePicker
+            dateRange={dateRange}
+            onDateRangeChange={setDateRange}
+          />
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline">
+                <Filter className="h-4 w-4 mr-2" /> Mais Filtros
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80">
+              <div className="grid gap-4">
+                <h4 className="font-medium leading-none">Filtros Adicionais</h4>
+                <div className="grid gap-2">
+                  <h5 className="text-sm font-medium">Tipo de Transação</h5>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="show-incomes" 
+                      checked={showIncomes} 
+                      onCheckedChange={(checked) => setShowIncomes(checked === true)}
+                    />
+                    <Label htmlFor="show-incomes">Mostrar Receitas</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="show-expenses" 
+                      checked={showExpenses}
+                      onCheckedChange={(checked) => setShowExpenses(checked === true)}
+                    />
+                    <Label htmlFor="show-expenses">Mostrar Despesas</Label>
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <h5 className="text-sm font-medium">Status</h5>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="show-pending" 
+                      checked={showPending}
+                      onCheckedChange={(checked) => setShowPending(checked === true)}
+                    />
+                    <Label htmlFor="show-pending">Pendentes</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="show-completed" 
+                      checked={showCompleted}
+                      onCheckedChange={(checked) => setShowCompleted(checked === true)}
+                    />
+                    <Label htmlFor="show-completed">Concluídos</Label>
+                  </div>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
       </div>
       
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 mt-6">
@@ -257,19 +417,6 @@ export default function Dashboard() {
             <div className="text-2xl font-bold">R$ {totalIncome.toLocaleString('pt-BR')}</div>
             <p className="text-xs text-muted-foreground">
               Valor total de serviços prestados
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Despesas Totais</CardTitle>
-            <TrendingDown className="h-4 w-4 text-destructive" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">R$ {totalExpenses.toLocaleString('pt-BR')}</div>
-            <p className="text-xs text-muted-foreground">
-              Total de gastos no período
             </p>
           </CardContent>
         </Card>
@@ -296,6 +443,19 @@ export default function Dashboard() {
             <div className="text-2xl font-bold">R$ {grossProfit.toLocaleString('pt-BR')}</div>
             <p className="text-xs text-muted-foreground">
               Receita - Comissões
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Despesas Totais</CardTitle>
+            <TrendingDown className="h-4 w-4 text-destructive" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">R$ {totalExpenses.toLocaleString('pt-BR')}</div>
+            <p className="text-xs text-muted-foreground">
+              Total de gastos no período
             </p>
           </CardContent>
         </Card>
@@ -336,16 +496,20 @@ export default function Dashboard() {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={monthlyData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
+                <XAxis dataKey="month">
+                  <Label value="Mês" offset={0} position="insideBottom" />
+                </XAxis>
+                <YAxis>
+                  <Label value="Valor (R$)" angle={-90} position="insideLeft" />
+                </YAxis>
                 <Tooltip 
                   formatter={(value) => [`R$ ${Number(value).toLocaleString('pt-BR')}`, '']}
                   labelFormatter={(label) => `Mês: ${label}`}
                 />
                 <Legend />
-                <Bar dataKey="receita" name="Receita" fill="#1EB4E4" />
-                <Bar dataKey="despesa" name="Despesa" fill="#FF6B6B" />
-                <Bar dataKey="lucro" name="Lucro" fill="#46D39A" />
+                <Bar dataKey="receita" name="Receita" fill="#1EB4E4" label={{position: 'top', formatter: (value) => `R$${value.toLocaleString('pt-BR')}`}} />
+                <Bar dataKey="despesa" name="Despesa" fill="#FF6B6B" label={{position: 'top', formatter: (value) => `R$${value.toLocaleString('pt-BR')}`}} />
+                <Bar dataKey="lucro" name="Lucro" fill="#46D39A" label={{position: 'top', formatter: (value) => `R$${value.toLocaleString('pt-BR')}`}} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -386,8 +550,12 @@ export default function Dashboard() {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={serviceData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
+                <XAxis dataKey="name">
+                  <Label value="Serviço" offset={0} position="insideBottom" />
+                </XAxis>
+                <YAxis>
+                  <Label value="Valor (R$)" angle={-90} position="insideLeft" />
+                </YAxis>
                 <Tooltip 
                   formatter={(value, name) => {
                     if (name === "count") return [value, "Quantidade"];
@@ -395,9 +563,9 @@ export default function Dashboard() {
                   }}
                 />
                 <Legend />
-                <Bar dataKey="faturamento" name="Faturamento" fill="#1EB4E4" />
-                <Bar dataKey="lucro" name="Lucro" fill="#46D39A" />
-                <Bar dataKey="count" name="Quantidade" fill="#FFBB28" />
+                <Bar dataKey="faturamento" name="Faturamento" fill="#1EB4E4" label={{position: 'top', formatter: (value) => `R$${value}`}} />
+                <Bar dataKey="lucro" name="Lucro" fill="#46D39A" label={{position: 'top', formatter: (value) => `R$${value}`}} />
+                <Bar dataKey="count" name="Quantidade" fill="#FFBB28" label={{position: 'top'}} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -411,8 +579,12 @@ export default function Dashboard() {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={clientData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
+                <XAxis dataKey="name">
+                  <Label value="Cliente" offset={0} position="insideBottom" />
+                </XAxis>
+                <YAxis>
+                  <Label value="Valor (R$)" angle={-90} position="insideLeft" />
+                </YAxis>
                 <Tooltip 
                   formatter={(value, name) => {
                     if (name === "count") return [value, "Quantidade"];
@@ -420,14 +592,86 @@ export default function Dashboard() {
                   }}
                 />
                 <Legend />
-                <Bar dataKey="value" name="Faturamento" fill="#8884D8">
+                <Bar dataKey="value" name="Faturamento" fill="#8884D8" label={{position: 'top', formatter: (value) => `R$${value.toLocaleString('pt-BR')}`}}>
                   {clientData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Bar>
-                <Bar dataKey="count" name="Quantidade" fill="#82ca9d" />
+                <Bar dataKey="count" name="Quantidade" fill="#82ca9d" label={{position: 'top'}} />
               </BarChart>
             </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+      
+      <div className="mt-6 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <Card className="col-span-2">
+          <CardHeader>
+            <CardTitle>Desempenho por Vendedor</CardTitle>
+          </CardHeader>
+          <CardContent className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={sellerData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name">
+                  <Label value="Vendedor" offset={0} position="insideBottom" />
+                </XAxis>
+                <YAxis yAxisId="left" orientation="left">
+                  <Label value="Valor (R$)" angle={-90} position="insideLeft" />
+                </YAxis>
+                <YAxis yAxisId="right" orientation="right">
+                  <Label value="Quantidade" angle={90} position="insideRight" />
+                </YAxis>
+                <Tooltip 
+                  formatter={(value, name) => {
+                    if (name === "count") return [value, "Quantidade de Serviços"];
+                    return [`R$ ${Number(value).toLocaleString('pt-BR')}`, name === "faturamento" ? "Faturamento" : "Lucro"];
+                  }}
+                />
+                <Legend />
+                <Bar yAxisId="left" dataKey="faturamento" name="Faturamento" fill="#1EB4E4" label={{position: 'top', formatter: (value) => `R$${value.toLocaleString('pt-BR')}`}} />
+                <Bar yAxisId="left" dataKey="lucro" name="Lucro" fill="#46D39A" label={{position: 'top', formatter: (value) => `R$${value.toLocaleString('pt-BR')}`}} />
+                <Line yAxisId="right" type="monotone" dataKey="count" name="Serviços Realizados" stroke="#FF8042" strokeWidth={3} dot={{ r: 6 }} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+        
+        <Card className="col-span-1 row-span-1">
+          <CardHeader>
+            <CardTitle>Clientes Inativos (+ 60 dias)</CardTitle>
+          </CardHeader>
+          <CardContent className="h-80 overflow-auto">
+            {inactiveClientsData.length > 0 ? (
+              <div className="space-y-4">
+                {inactiveClientsData.map((client, index) => (
+                  <div key={index} className="border rounded-lg p-3">
+                    <div className="flex justify-between items-center">
+                      <h3 className="font-medium">{client.name}</h3>
+                      <Badge variant="outline" className="text-amber-500">{client.daysSinceLastPurchase} dias</Badge>
+                    </div>
+                    <div className="text-sm text-muted-foreground mt-2">
+                      <div className="flex justify-between">
+                        <span>Última compra:</span>
+                        <span>{format(parseISO(client.lastPurchase), "dd/MM/yyyy")}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Total gasto:</span>
+                        <span>R$ {client.totalSpent.toLocaleString('pt-BR')}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Compras realizadas:</span>
+                        <span>{client.purchaseCount}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-muted-foreground">Não há clientes inativos por mais de 60 dias.</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
