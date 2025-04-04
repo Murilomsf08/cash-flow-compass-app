@@ -10,6 +10,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface DateRangePickerProps {
   dateRange: {
@@ -25,6 +26,8 @@ export function DateRangePicker({
   onDateRangeChange, 
   className 
 }: DateRangePickerProps) {
+  const isMobile = useIsMobile();
+  
   return (
     <div className={cn("grid gap-2", className)}>
       <Popover>
@@ -33,21 +36,21 @@ export function DateRangePicker({
             id="date"
             variant="outline"
             className={cn(
-              "w-[300px] justify-start text-left font-normal",
+              "w-full md:w-[300px] justify-start text-left font-normal",
               !dateRange && "text-muted-foreground"
             )}
           >
-            <CalendarRange className="mr-2 h-4 w-4" />
+            <CalendarRange className="mr-2 h-4 w-4 shrink-0" />
             {dateRange?.from ? (
               dateRange.to ? (
-                <>
-                  Entre {format(dateRange.from, "dd/MM/yyyy")} e {format(dateRange.to, "dd/MM/yyyy")}
-                </>
+                <span className="truncate">
+                  {format(dateRange.from, "dd/MM/yy")} - {format(dateRange.to, "dd/MM/yy")}
+                </span>
               ) : (
                 format(dateRange.from, "dd/MM/yyyy")
               )
             ) : (
-              <span>Selecione um período</span>
+              <span>Selecione período</span>
             )}
           </Button>
         </PopoverTrigger>
@@ -58,7 +61,7 @@ export function DateRangePicker({
             defaultMonth={dateRange?.from}
             selected={dateRange}
             onSelect={onDateRangeChange}
-            numberOfMonths={2}
+            numberOfMonths={isMobile ? 1 : 2}
             className={cn("p-3 pointer-events-auto")}
           />
         </PopoverContent>

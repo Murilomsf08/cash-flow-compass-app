@@ -71,8 +71,37 @@
   * {
     @apply border-border;
   }
+  
+  html, body {
+    @apply overflow-x-hidden max-w-[100vw];
+  }
+  
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
+  
+  /* Mobile-specific adjustments */
+  @media (max-width: 640px) {
+    .table-responsive {
+      @apply block w-full overflow-x-auto;
+    }
+    
+    .truncate-mobile {
+      @apply truncate max-w-[180px];
+    }
+  }
+}
+
+/* Responsive utility classes */
+.responsive-container {
+  @apply w-full px-2 md:px-4;
+}
+
+.responsive-grid {
+  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4;
+}
+
+.card-responsive {
+  @apply w-full overflow-hidden;
 }
