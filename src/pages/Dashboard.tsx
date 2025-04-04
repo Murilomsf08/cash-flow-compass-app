@@ -16,7 +16,7 @@ import {
   CartesianGrid,
   Line,
   LineChart,
-  Label,
+  Label as RechartsLabel,
 } from "recharts";
 import { useToast } from "@/components/ui/use-toast";
 import {
@@ -497,10 +497,10 @@ export default function Dashboard() {
               <BarChart data={monthlyData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month">
-                  <Label value="Mês" offset={0} position="insideBottom" />
+                  <RechartsLabel value="Mês" offset={0} position="insideBottom" />
                 </XAxis>
                 <YAxis>
-                  <Label value="Valor (R$)" angle={-90} position="insideLeft" />
+                  <RechartsLabel value="Valor (R$)" angle={-90} position="insideLeft" />
                 </YAxis>
                 <Tooltip 
                   formatter={(value) => [`R$ ${Number(value).toLocaleString('pt-BR')}`, '']}
@@ -551,10 +551,10 @@ export default function Dashboard() {
               <BarChart data={serviceData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name">
-                  <Label value="Serviço" offset={0} position="insideBottom" />
+                  <RechartsLabel value="Serviço" offset={0} position="insideBottom" />
                 </XAxis>
                 <YAxis>
-                  <Label value="Valor (R$)" angle={-90} position="insideLeft" />
+                  <RechartsLabel value="Valor (R$)" angle={-90} position="insideLeft" />
                 </YAxis>
                 <Tooltip 
                   formatter={(value, name) => {
@@ -580,10 +580,10 @@ export default function Dashboard() {
               <BarChart data={clientData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name">
-                  <Label value="Cliente" offset={0} position="insideBottom" />
+                  <RechartsLabel value="Cliente" offset={0} position="insideBottom" />
                 </XAxis>
                 <YAxis>
-                  <Label value="Valor (R$)" angle={-90} position="insideLeft" />
+                  <RechartsLabel value="Valor (R$)" angle={-90} position="insideLeft" />
                 </YAxis>
                 <Tooltip 
                   formatter={(value, name) => {
@@ -614,13 +614,13 @@ export default function Dashboard() {
               <BarChart data={sellerData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name">
-                  <Label value="Vendedor" offset={0} position="insideBottom" />
+                  <RechartsLabel value="Vendedor" offset={0} position="insideBottom" />
                 </XAxis>
                 <YAxis yAxisId="left" orientation="left">
-                  <Label value="Valor (R$)" angle={-90} position="insideLeft" />
+                  <RechartsLabel value="Valor (R$)" angle={-90} position="insideLeft" />
                 </YAxis>
                 <YAxis yAxisId="right" orientation="right">
-                  <Label value="Quantidade" angle={90} position="insideRight" />
+                  <RechartsLabel value="Quantidade" angle={90} position="insideRight" />
                 </YAxis>
                 <Tooltip 
                   formatter={(value, name) => {
