@@ -44,10 +44,10 @@ import {
   MoreVertical,
   Filter,
   Calendar,
-  Money,
+  DollarSign,
   CreditCard,
   Wallet,
-  PiggyBank
+  Coins
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import {
@@ -84,10 +84,10 @@ const categories = [
 
 // Mock payment method data
 const paymentOptions = [
-  { id: "money", name: "Dinheiro", icon: Money },
+  { id: "money", name: "Dinheiro", icon: DollarSign },
   { id: "creditCard", name: "Cartão de Crédito", icon: CreditCard },
   { id: "debitCard", name: "Cartão de Débito", icon: Wallet },
-  { id: "savings", name: "Poupança", icon: PiggyBank },
+  { id: "savings", name: "Poupança", icon: Coins },
 ];
 
 export default function ExpensesPage() {
@@ -191,7 +191,7 @@ export default function ExpensesPage() {
       id: expenses.length + 1,
       description: currentExpense.description,
       category: currentExpense.category,
-      value: parseFloat(currentExpense.value),
+      value: parseFloat(currentExpense.value.toString()), // Convert to string first to avoid TypeScript error
       date: currentExpense.date,
       paymentMethod: currentExpense.paymentMethod,
     };
