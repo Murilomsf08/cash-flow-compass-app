@@ -42,9 +42,14 @@ import {
   Check, 
   X, 
   ChevronsUpDown, 
-  MoreVertical 
+  MoreVertical,
+  Filter,
+  Calendar,
+  Users,
+  ShoppingBag,
+  Tags
 } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,9 +57,12 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 
 // Mock data - later would come from a real API/database
 const initialServices = [
@@ -102,6 +110,7 @@ export default function ServicesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isNewEntryDialogOpen, setIsNewEntryDialogOpen] = useState(false);
   const [isClientDialogOpen, setIsClientDialogOpen] = useState(false);
+  const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
   
   // Form states
   const [selectedClient, setSelectedClient] = useState("");
@@ -116,14 +125,87 @@ export default function ServicesPage() {
     email: "",
   });
 
+  // Filter states
+  const [filters, setFilters] = useState({
+    date: { from: undefined, to: undefined },
+    client: "",
+    seller: "",
+    product: "",
+    status: "",
+  });
+
+  // Available filter options
+  const [availableFilters, setAvailableFilters] = useState([
+    { id: "date", name: "Data", enabled: true, icon: Calendar },
+    { id: "client", name: "Cliente", enabled: true, icon: Users },
+    { id: "seller", name: "Vendedor", enabled: true, icon: Users },
+    { id: "product", name: "Produto/Serviço", enabled: true, icon: ShoppingBag },
+    { id: "status", name: "Status", enabled: true, icon: Tags },
+  ]);
+
+  // Filter popup states
+  const [openDatePopover, setOpenDatePopover] = useState(false);
+  const [openClientFilterPopover, setOpenClientFilterPopover] = useState(false);
+  const [openSellerFilterPopover, setOpenSellerFilterPopover] = useState(false);
+  const [openProductPopover, setOpenProductPopover] = useState(false);
+  const [openStatusPopover, setOpenStatusPopover] = useState(false);
+
+  // Summary data
+  const [summaryData, setSummaryData] = useState({
+    totalValue: 0,
+    totalCount: 0,
+    totalCommission: 0,
+    discounts: 0
+  });
+
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
   };
 
-  const filteredServices = services.filter(service => 
-    service.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    service.client.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filter services based on current filters
+  const filterServices = () => {
+    return services.filter(service => {
+      // Text search filter
+      const searchMatch = searchTerm ? 
+        service.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        service.client.toLowerCase().includes(searchTerm.toLowerCase()) : 
+        true;
+      
+      // Date filter
+      const dateMatch = filters.date.from && filters.date.to ? 
+        new Date(service.date) >= filters.date.from && new Date(service.date) <= filters.date.to : 
+        true;
+      
+      // Client filter
+      const clientMatch = filters.client ? service.client === filters.client : true;
+      
+      // Seller filter
+      const sellerMatch = filters.seller ? service.seller === filters.seller : true;
+      
+      // Product/Service filter
+      const productMatch = filters.product ? service.name === filters.product : true;
+      
+      // Status filter
+      const statusMatch = filters.status ? service.status === filters.status : true;
+      
+      return searchMatch && dateMatch && clientMatch && sellerMatch && productMatch && statusMatch;
+    });
+  };
+
+  const filteredServices = filterServices();
+
+  // Update summary data based on filtered services
+  useEffect(() => {
+    const totalValue = filteredServices.reduce((sum, service) => sum + service.value, 0);
+    const totalCommission = filteredServices.reduce((sum, service) => sum + service.commission, 0);
+    
+    setSummaryData({
+      totalValue,
+      totalCount: filteredServices.length,
+      totalCommission,
+      discounts: 0 // This would be calculated based on actual discount data
+    });
+  }, [filteredServices]);
 
   const getStatusBadge = (status) => {
     const statusOption = statusOptions.find(option => option.value === status);
@@ -305,10 +387,71 @@ export default function ServicesPage() {
     // In a real app, this would trigger an invoice generation
   };
 
+  const handleToggleFilter = (filterId) => {
+    setAvailableFilters(availableFilters.map(filter => 
+      filter.id === filterId ? { ...filter, enabled: !filter.enabled } : filter
+    ));
+  };
+
+  const resetFilters = () => {
+    setFilters({
+      date: { from: undefined, to: undefined },
+      client: "",
+      seller: "",
+      product: "",
+      status: ""
+    });
+    
+    toast({
+      title: "Filtros resetados",
+      description: "Todos os filtros foram limpos."
+    });
+  };
+
+  const updateDateFilter = (dateRange) => {
+    setFilters({
+      ...filters,
+      date: dateRange
+    });
+    setOpenDatePopover(false);
+  };
+
+  const updateClientFilter = (clientName) => {
+    setFilters({
+      ...filters,
+      client: clientName
+    });
+    setOpenClientFilterPopover(false);
+  };
+
+  const updateSellerFilter = (sellerName) => {
+    setFilters({
+      ...filters,
+      seller: sellerName
+    });
+    setOpenSellerFilterPopover(false);
+  };
+
+  const updateProductFilter = (productName) => {
+    setFilters({
+      ...filters,
+      product: productName
+    });
+    setOpenProductPopover(false);
+  };
+
+  const updateStatusFilter = (statusValue) => {
+    setFilters({
+      ...filters,
+      status: statusValue
+    });
+    setOpenStatusPopover(false);
+  };
+
   return (
     <div>
       <PageHeader 
-        title="Registro de Serviços" 
+        title="Registro de Serviços - FinQ" 
         description="Cadastre e visualize os serviços prestados" 
       />
 
@@ -317,31 +460,31 @@ export default function ServicesPage() {
         <Card>
           <CardContent className="pt-6">
             <h3 className="text-sm font-medium text-muted-foreground">Valor total</h3>
-            <p className="text-2xl font-bold">R$ {services.reduce((sum, service) => sum + service.value, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            <p className="text-2xl font-bold">R$ {summaryData.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <h3 className="text-sm font-medium text-muted-foreground">Quantidade</h3>
-            <p className="text-2xl font-bold">{services.length}</p>
+            <p className="text-2xl font-bold">{summaryData.totalCount}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <h3 className="text-sm font-medium text-muted-foreground">Comissão total</h3>
-            <p className="text-2xl font-bold">R$ {services.reduce((sum, service) => sum + service.commission, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            <p className="text-2xl font-bold">R$ {summaryData.totalCommission.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <h3 className="text-sm font-medium text-muted-foreground">Descontos</h3>
-            <p className="text-2xl font-bold">R$ 0,00</p>
+            <p className="text-2xl font-bold">R$ {summaryData.discounts.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="flex items-center justify-between mb-6">
-        <div className="relative w-full max-w-sm">
+      <div className="flex flex-col md:flex-row md:items-center gap-3 mb-6">
+        <div className="relative w-full md:max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             type="search"
@@ -351,13 +494,273 @@ export default function ServicesPage() {
             onChange={handleSearchChange}
           />
         </div>
-        <Button onClick={() => setIsNewEntryDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" /> Novo Serviço
-        </Button>
+
+        <div className="flex flex-wrap gap-2">
+          {/* Filter by Date */}
+          {availableFilters.find(f => f.id === 'date')?.enabled && (
+            <Popover open={openDatePopover} onOpenChange={setOpenDatePopover}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="h-10">
+                  <Calendar className="mr-2 h-4 w-4" />
+                  {filters.date.from && filters.date.to ? 
+                    `${format(filters.date.from, 'dd/MM/yyyy')} - ${format(filters.date.to, 'dd/MM/yyyy')}` : 
+                    "Filtrar por data"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <div className="p-3">
+                  <CalendarComponent
+                    mode="range"
+                    selected={{
+                      from: filters.date.from,
+                      to: filters.date.to
+                    }}
+                    onSelect={(range) => updateDateFilter(range || { from: undefined, to: undefined })}
+                    numberOfMonths={1}
+                    className="p-3 pointer-events-auto"
+                  />
+                  <div className="flex justify-end gap-2 pt-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => updateDateFilter({ from: undefined, to: undefined })}
+                    >
+                      Limpar
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => setOpenDatePopover(false)}
+                    >
+                      Aplicar
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
+
+          {/* Filter by Client */}
+          {availableFilters.find(f => f.id === 'client')?.enabled && (
+            <Popover open={openClientFilterPopover} onOpenChange={setOpenClientFilterPopover}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="h-10">
+                  <Users className="mr-2 h-4 w-4" />
+                  {filters.client || "Cliente"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[200px] p-0">
+                <Command>
+                  <CommandInput placeholder="Buscar cliente..." />
+                  <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+                  <CommandGroup>
+                    <CommandItem
+                      onSelect={() => updateClientFilter("")}
+                      className="flex items-center"
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          !filters.client ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      <span>Todos</span>
+                    </CommandItem>
+                    {clients.map((client) => (
+                      <CommandItem
+                        key={client.id}
+                        onSelect={() => updateClientFilter(client.name)}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            filters.client === client.name ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        {client.name}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          )}
+
+          {/* Filter by Seller */}
+          {availableFilters.find(f => f.id === 'seller')?.enabled && (
+            <Popover open={openSellerFilterPopover} onOpenChange={setOpenSellerFilterPopover}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="h-10">
+                  <Users className="mr-2 h-4 w-4" />
+                  {filters.seller || "Vendedor"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[200px] p-0">
+                <Command>
+                  <CommandInput placeholder="Buscar vendedor..." />
+                  <CommandEmpty>Nenhum vendedor encontrado.</CommandEmpty>
+                  <CommandGroup>
+                    <CommandItem
+                      onSelect={() => updateSellerFilter("")}
+                      className="flex items-center"
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          !filters.seller ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      <span>Todos</span>
+                    </CommandItem>
+                    {sellers.map((seller) => (
+                      <CommandItem
+                        key={seller.id}
+                        onSelect={() => updateSellerFilter(seller.name)}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            filters.seller === seller.name ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        {seller.name}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          )}
+
+          {/* Filter by Product */}
+          {availableFilters.find(f => f.id === 'product')?.enabled && (
+            <Popover open={openProductPopover} onOpenChange={setOpenProductPopover}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="h-10">
+                  <ShoppingBag className="mr-2 h-4 w-4" />
+                  {filters.product || "Produto/Serviço"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[200px] p-0">
+                <Command>
+                  <CommandInput placeholder="Buscar produto..." />
+                  <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
+                  <CommandGroup>
+                    <CommandItem
+                      onSelect={() => updateProductFilter("")}
+                      className="flex items-center"
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          !filters.product ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      <span>Todos</span>
+                    </CommandItem>
+                    {products.map((product) => (
+                      <CommandItem
+                        key={product.id}
+                        onSelect={() => updateProductFilter(product.name)}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            filters.product === product.name ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        {product.name}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          )}
+
+          {/* Filter by Status */}
+          {availableFilters.find(f => f.id === 'status')?.enabled && (
+            <Popover open={openStatusPopover} onOpenChange={setOpenStatusPopover}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="h-10">
+                  <Tags className="mr-2 h-4 w-4" />
+                  {filters.status ? statusOptions.find(s => s.value === filters.status)?.label || filters.status : "Status"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[200px] p-0">
+                <Command>
+                  <CommandInput placeholder="Buscar status..." />
+                  <CommandEmpty>Nenhum status encontrado.</CommandEmpty>
+                  <CommandGroup>
+                    <CommandItem
+                      onSelect={() => updateStatusFilter("")}
+                      className="flex items-center"
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          !filters.status ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      <span>Todos</span>
+                    </CommandItem>
+                    {statusOptions.map((status) => (
+                      <CommandItem
+                        key={status.value}
+                        onSelect={() => updateStatusFilter(status.value)}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            filters.status === status.value ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        <div className="flex items-center">
+                          <span className={`w-2 h-2 rounded-full ${status.color} mr-2`}></span>
+                          {status.label}
+                        </div>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          )}
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">
+                <Filter className="mr-2 h-4 w-4" /> Mais Filtros
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>Personalizar Filtros</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {availableFilters.map((filter) => (
+                <DropdownMenuCheckboxItem
+                  key={filter.id}
+                  checked={filter.enabled}
+                  onCheckedChange={() => handleToggleFilter(filter.id)}
+                >
+                  <filter.icon className="mr-2 h-4 w-4" />
+                  <span>{filter.name}</span>
+                </DropdownMenuCheckboxItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={resetFilters}>
+                <X className="mr-2 h-4 w-4" />
+                <span>Limpar Filtros</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Button onClick={() => setIsNewEntryDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" /> Novo Serviço
+          </Button>
+        </div>
       </div>
 
       <Card>
-        <CardContent className="p-0">
+        <CardContent className="p-0 overflow-auto">
           <Table>
             <TableHeader>
               <TableRow>
