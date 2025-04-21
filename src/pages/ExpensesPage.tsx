@@ -1,27 +1,16 @@
+
 import { useState, useEffect } from "react";
 import { PageHeader } from "@/components/PageHeader";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { 
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-} from "@/components/ui/command";
-import { 
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import { 
   Table, 
@@ -31,25 +20,25 @@ import {
   TableHeader, 
   TableRow 
 } from "@/components/ui/table";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import { 
   Plus, 
   Search, 
-  FileText, 
-  Printer, 
-  Copy, 
-  Check, 
-  X, 
-  ChevronsUpDown, 
+  Edit, 
+  Trash, 
   MoreVertical,
   Filter,
-  Calendar,
-  DollarSign,
-  CreditCard,
-  Wallet,
-  Coins
+  Calendar, 
+  FileText,
+  Tags
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -59,85 +48,208 @@ import {
   DropdownMenuTrigger,
   DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
-import { format } from "date-fns";
-import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Check } from "lucide-react";
 
-// Mock data - later would come from a real API/database
+// Mock data (later would come from a real API/database)
 const initialExpenses = [
-  { id: 1, description: "Aluguel", category: "Moradia", value: 1200, date: "2025-03-15", paymentMethod: "creditCard" },
-  { id: 2, description: "Supermercado", category: "Alimentação", value: 350, date: "2025-03-20", paymentMethod: "money" },
-  { id: 3, description: "Conta de Luz", category: "Moradia", value: 180, date: "2025-03-25", paymentMethod: "debitCard" },
-  { id: 4, description: "Transporte", category: "Deslocamento", value: 90, date: "2025-04-01", paymentMethod: "money" },
-  { id: 5, description: "Restaurante", category: "Lazer", value: 200, date: "2025-04-02", paymentMethod: "creditCard" },
+  { 
+    id: 1, 
+    description: "Aluguel Escritório", 
+    category: "Fixo", 
+    value: 1500, 
+    date: "2025-03-10", 
+    status: "Pago", 
+    paymentType: "À Vista", 
+    installments: { total: 1, current: 1 }
+  },
+  { 
+    id: 2, 
+    description: "Internet", 
+    category: "Fixo", 
+    value: 200, 
+    date: "2025-03-12", 
+    status: "Pago", 
+    paymentType: "À Vista", 
+    installments: { total: 1, current: 1 }
+  },
+  { 
+    id: 3, 
+    description: "Material de Escritório", 
+    category: "Variável", 
+    value: 350, 
+    date: "2025-03-18", 
+    status: "Pendente", 
+    paymentType: "À Vista", 
+    installments: { total: 1, current: 1 }
+  },
+  { 
+    id: 4, 
+    description: "Energia", 
+    category: "Fixo", 
+    value: 300, 
+    date: "2025-03-20", 
+    status: "Pago", 
+    paymentType: "À Vista", 
+    installments: { total: 1, current: 1 }
+  },
+  { 
+    id: 5, 
+    description: "Jantar com Cliente", 
+    category: "Variável", 
+    value: 250, 
+    date: "2025-04-01", 
+    status: "Pendente", 
+    paymentType: "À Vista", 
+    installments: { total: 1, current: 1 }
+  },
+  { 
+    id: 6, 
+    description: "Notebooks para Equipe", 
+    category: "Investimento", 
+    value: 1200, 
+    date: "2025-04-10", 
+    status: "Pago", 
+    paymentType: "Parcelado", 
+    installments: { total: 4, current: 1 }
+  },
+  { 
+    id: 7, 
+    description: "Notebooks para Equipe", 
+    category: "Investimento", 
+    value: 1200, 
+    date: "2025-05-10", 
+    status: "Pendente", 
+    paymentType: "Parcelado", 
+    installments: { total: 4, current: 2 }
+  },
+  { 
+    id: 8, 
+    description: "Notebooks para Equipe", 
+    category: "Investimento", 
+    value: 1200, 
+    date: "2025-06-10", 
+    status: "Pendente", 
+    paymentType: "Parcelado", 
+    installments: { total: 4, current: 3 }
+  },
+  { 
+    id: 9, 
+    description: "Notebooks para Equipe", 
+    category: "Investimento", 
+    value: 1200, 
+    date: "2025-07-10", 
+    status: "Pendente", 
+    paymentType: "Parcelado", 
+    installments: { total: 4, current: 4 }
+  },
 ];
 
-// Mock category data
-const categories = [
-  { id: 1, name: "Moradia" },
-  { id: 2, name: "Alimentação" },
-  { id: 3, name: "Deslocamento" },
-  { id: 4, name: "Lazer" },
-  { id: 5, name: "Outros" },
-];
+// Initial categories list
+const initialCategories = ["Fixo", "Variável", "Investimento", "Pessoal", "Impostos"];
 
-// Mock payment method data
-const paymentOptions = [
-  { id: "money", name: "Dinheiro", icon: DollarSign },
-  { id: "creditCard", name: "Cartão de Crédito", icon: CreditCard },
-  { id: "debitCard", name: "Cartão de Débito", icon: Wallet },
-  { id: "savings", name: "Poupança", icon: Coins },
-];
+// Status options
+const statusOptions = ["Pago", "Pendente", "Cancelado"];
+
+// Payment type options
+const paymentTypeOptions = ["À Vista", "Parcelado"];
 
 export default function ExpensesPage() {
   const { toast } = useToast();
   const [expenses, setExpenses] = useState(initialExpenses);
   const [searchTerm, setSearchTerm] = useState("");
-  const [isNewEntryDialogOpen, setIsNewEntryDialogOpen] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingExpense, setEditingExpense] = useState(null);
+  const [expenseToDelete, setExpenseToDelete] = useState(null);
+  const [categories, setCategories] = useState(initialCategories);
+  const [newCategory, setNewCategory] = useState("");
   
-  // Form states
-  const [currentExpense, setCurrentExpense] = useState({
-    description: "",
-    category: "",
-    value: 0,
-    date: new Date().toISOString().split('T')[0],
-    paymentMethod: "money",
-  });
-
+  // Multiple expenses management
+  const [expenseItems, setExpenseItems] = useState([
+    { 
+      id: 1, 
+      description: "", 
+      category: "", 
+      value: "", 
+      date: "", 
+      paymentType: "À Vista",
+      installments: 1
+    }
+  ]);
+  
   // Filter states
   const [filters, setFilters] = useState({
     date: { from: undefined, to: undefined },
+    description: "",
     category: "",
-    paymentMethod: "",
+    status: ""
   });
 
   // Available filter options
   const [availableFilters, setAvailableFilters] = useState([
     { id: "date", name: "Data", enabled: true, icon: Calendar },
-    { id: "category", name: "Categoria", enabled: true, icon: FileText },
-    { id: "paymentMethod", name: "Método de Pagamento", enabled: true, icon: CreditCard },
+    { id: "description", name: "Descrição", enabled: true, icon: FileText },
+    { id: "category", name: "Categoria", enabled: true, icon: Tags },
+    { id: "status", name: "Status", enabled: true, icon: Tags }
   ]);
 
-  // Filter popup states - Initialize with closed state
+  // Filter popup states
   const [openDatePopover, setOpenDatePopover] = useState(false);
+  const [openDescriptionPopover, setOpenDescriptionPopover] = useState(false);
   const [openCategoryPopover, setOpenCategoryPopover] = useState(false);
-  const [openPaymentMethodPopover, setOpenPaymentMethodPopover] = useState(false);
-
-  // Summary data
-  const [summaryData, setSummaryData] = useState({
-    totalValue: 0,
-    totalCount: 0,
-  });
+  const [openStatusPopover, setOpenStatusPopover] = useState(false);
+  
+  const [totalExpensesValue, setTotalExpensesValue] = useState(0);
+  const [totalExpensesCount, setTotalExpensesCount] = useState(0);
+  
+  const handleAddExpenseItem = () => {
+    setExpenseItems([
+      ...expenseItems,
+      { 
+        id: expenseItems.length + 1, 
+        description: "", 
+        category: "", 
+        value: "", 
+        date: "",
+        paymentType: "À Vista",
+        installments: 1
+      }
+    ]);
+  };
+  
+  const handleRemoveExpenseItem = (id) => {
+    if (expenseItems.length > 1) {
+      setExpenseItems(expenseItems.filter(item => item.id !== id));
+    } else {
+      toast({
+        title: "Aviso",
+        description: "Você precisa ter pelo menos um item de despesa.",
+        variant: "default"
+      });
+    }
+  };
+  
+  const handleExpenseItemChange = (id, field, value) => {
+    const updatedItems = expenseItems.map(item => {
+      if (item.id === id) {
+        return { ...item, [field]: value };
+      }
+      return item;
+    });
+    
+    setExpenseItems(updatedItems);
+  };
 
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
   };
 
-  // Filter expenses based on current filters
+  // Filter expenses based on the current filters
   const filterExpenses = () => {
     return expenses.filter(expense => {
-      // Text search filter
+      // Search term filter
       const searchMatch = searchTerm ? 
         expense.description.toLowerCase().includes(searchTerm.toLowerCase()) || 
         expense.category.toLowerCase().includes(searchTerm.toLowerCase()) : 
@@ -148,96 +260,212 @@ export default function ExpensesPage() {
         new Date(expense.date) >= filters.date.from && new Date(expense.date) <= filters.date.to : 
         true;
       
+      // Description filter
+      const descriptionMatch = filters.description ? 
+        expense.description.toLowerCase().includes(filters.description.toLowerCase()) : 
+        true;
+      
       // Category filter
       const categoryMatch = filters.category ? expense.category === filters.category : true;
       
-      // Payment Method filter
-      const paymentMethodMatch = filters.paymentMethod ? expense.paymentMethod === filters.paymentMethod : true;
+      // Status filter
+      const statusMatch = filters.status ? expense.status === filters.status : true;
       
-      return searchMatch && dateMatch && categoryMatch && paymentMethodMatch;
+      return searchMatch && dateMatch && descriptionMatch && categoryMatch && statusMatch;
     });
   };
 
   const filteredExpenses = filterExpenses();
 
-  // Update summary data based on filtered expenses
+  // Calculate totals for filtered expenses
   useEffect(() => {
-    const totalValue = filteredExpenses.reduce((sum, expense) => sum + expense.value, 0);
-    
-    setSummaryData({
-      totalValue,
-      totalCount: filteredExpenses.length,
-    });
+    const total = filteredExpenses.reduce((sum, expense) => sum + expense.value, 0);
+    setTotalExpensesValue(total);
+    setTotalExpensesCount(filteredExpenses.length);
   }, [filteredExpenses]);
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setCurrentExpense(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleSaveNewEntry = () => {
-    // Validation
-    if (!currentExpense.description || !currentExpense.category || !currentExpense.value || !currentExpense.date || !currentExpense.paymentMethod) {
+  const handleAddExpenses = () => {
+    // Form validation
+    const invalidItems = expenseItems.filter(
+      item => !item.description || !item.category || !item.value || !item.date
+    );
+    
+    if (invalidItems.length > 0) {
       toast({
         title: "Campos obrigatórios",
-        description: "Por favor, preencha todos os campos.",
+        description: "Por favor, preencha todos os campos obrigatórios em todos os itens.",
         variant: "destructive"
       });
       return;
     }
 
-    // Create new expense entry
-    const newExpense = {
-      id: expenses.length + 1,
-      description: currentExpense.description,
-      category: currentExpense.category,
-      value: parseFloat(currentExpense.value.toString()), // Convert to string first to avoid TypeScript error
-      date: currentExpense.date,
-      paymentMethod: currentExpense.paymentMethod,
-    };
-
-    setExpenses([...expenses, newExpense]);
-    setIsNewEntryDialogOpen(false);
+    // Validate values
+    const invalidValues = expenseItems.filter(
+      item => isNaN(parseFloat(item.value)) || parseFloat(item.value) <= 0
+    );
     
-    // Reset form
-    setCurrentExpense({
-      description: "",
-      category: "",
-      value: 0,
-      date: new Date().toISOString().split('T')[0],
-      paymentMethod: "money",
-    });
-
-    toast({
-      title: "Despesa registrada",
-      description: "A despesa foi adicionada com sucesso."
-    });
-  };
-
-  const handleCloneExpense = (id) => {
-    const expenseToClone = expenses.find(expense => expense.id === id);
-    if (expenseToClone) {
-      const clonedExpense = {
-        ...expenseToClone,
-        id: expenses.length + 1,
-        date: new Date().toISOString().split('T')[0],
-      };
-      
-      setExpenses([...expenses, clonedExpense]);
-      
+    if (invalidValues.length > 0) {
       toast({
-        title: "Despesa clonada",
-        description: "Uma cópia da despesa foi criada com sucesso."
+        title: "Valores inválidos",
+        description: "O valor da despesa deve ser um número positivo em todos os itens.",
+        variant: "destructive"
       });
+      return;
     }
+
+    // Add new expenses
+    let newExpensesArray = [];
+
+    expenseItems.forEach((item, index) => {
+      const baseExpense = {
+        id: expenses.length + index + 1,
+        description: item.description,
+        category: item.category,
+        value: parseFloat(item.value),
+        date: item.date,
+        status: "Pendente",
+        paymentType: item.paymentType,
+        installments: {
+          total: item.paymentType === 'Parcelado' ? parseInt(item.installments) : 1,
+          current: 1
+        }
+      };
+
+      // Add the first expense/installment
+      newExpensesArray.push(baseExpense);
+
+      // If parcelado, add remaining installments
+      if (item.paymentType === 'Parcelado' && parseInt(item.installments) > 1) {
+        for (let i = 2; i <= parseInt(item.installments); i++) {
+          const nextDate = new Date(item.date);
+          nextDate.setMonth(nextDate.getMonth() + (i - 1));
+          
+          newExpensesArray.push({
+            ...baseExpense,
+            id: expenses.length + expenseItems.length + newExpensesArray.length,
+            date: nextDate.toISOString().split('T')[0],
+            installments: { 
+              total: parseInt(item.installments), 
+              current: i 
+            }
+          });
+        }
+      }
+    });
+
+    setExpenses([...expenses, ...newExpensesArray]);
+    setIsDialogOpen(false);
+    setExpenseItems([
+      { 
+        id: 1, 
+        description: "", 
+        category: "", 
+        value: "", 
+        date: "",
+        paymentType: "À Vista",
+        installments: 1
+      }
+    ]);
+
+    toast({
+      title: `${newExpensesArray.length > 1 ? 'Despesas registradas' : 'Despesa registrada'}`,
+      description: `${newExpensesArray.length > 1 ? 'As despesas foram adicionadas' : 'A despesa foi adicionada'} com sucesso.`
+    });
   };
 
-  const handlePrintExpense = (id) => {
+  const handleAddCategory = () => {
+    if (!newCategory.trim()) {
+      toast({
+        title: "Campo obrigatório",
+        description: "Por favor, informe um nome para a categoria.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (categories.includes(newCategory.trim())) {
+      toast({
+        title: "Categoria existente",
+        description: "Esta categoria já existe na lista.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setCategories([...categories, newCategory.trim()]);
+    setNewCategory("");
+    setIsCategoryDialogOpen(false);
+
     toast({
-      title: "Imprimir despesa",
-      description: "Enviando despesa para impressão..."
+      title: "Categoria adicionada",
+      description: "A categoria foi adicionada com sucesso."
     });
-    // In a real app, this would trigger a print function
+  };
+
+  const handleStatusChange = (id, newStatus) => {
+    const updatedExpenses = expenses.map(expense => {
+      if (expense.id === id) {
+        return { ...expense, status: newStatus };
+      }
+      return expense;
+    });
+    
+    setExpenses(updatedExpenses);
+    
+    toast({
+      title: "Status atualizado",
+      description: `O status da despesa foi alterado para ${newStatus}.`
+    });
+  };
+  
+  const handleDeleteExpense = (expense) => {
+    setExpenseToDelete(expense);
+    setIsDeleteDialogOpen(true);
+  };
+  
+  const confirmDeleteExpense = () => {
+    if (!expenseToDelete) return;
+    
+    // If it's an installment in a series, we need to ask if all installments should be deleted
+    if (expenseToDelete.paymentType === 'Parcelado' && expenseToDelete.installments.total > 1) {
+      // For this example, we'll just delete the specific installment
+      // In a real app, you might want to ask the user if they want to delete all installments
+      setExpenses(expenses.filter(expense => expense.id !== expenseToDelete.id));
+    } else {
+      setExpenses(expenses.filter(expense => expense.id !== expenseToDelete.id));
+    }
+    
+    setIsDeleteDialogOpen(false);
+    setExpenseToDelete(null);
+    
+    toast({
+      title: "Despesa excluída",
+      description: "A despesa foi removida com sucesso."
+    });
+  };
+  
+  const handleEditExpense = (expense) => {
+    setEditingExpense(expense);
+    setIsEditDialogOpen(true);
+  };
+  
+  const handleUpdateExpense = () => {
+    if (!editingExpense) return;
+    
+    // If it's an installment in a series and there's a value change,
+    // we should ask if all future installments should be updated
+    // For this example, we'll just update this specific installment
+    
+    setExpenses(expenses.map(expense => 
+      expense.id === editingExpense.id ? editingExpense : expense
+    ));
+    
+    setIsEditDialogOpen(false);
+    
+    toast({
+      title: "Despesa atualizada",
+      description: "As alterações foram salvas com sucesso."
+    });
   };
 
   const handleToggleFilter = (filterId) => {
@@ -249,8 +477,9 @@ export default function ExpensesPage() {
   const resetFilters = () => {
     setFilters({
       date: { from: undefined, to: undefined },
+      description: "",
       category: "",
-      paymentMethod: "",
+      status: ""
     });
     
     toast({
@@ -259,53 +488,70 @@ export default function ExpensesPage() {
     });
   };
 
-  // Fixed filter handlers to avoid infinite loops
   const updateDateFilter = (dateRange) => {
     setFilters({
       ...filters,
-      date: dateRange || { from: undefined, to: undefined }
+      date: dateRange
     });
+    setOpenDatePopover(false);
   };
 
-  const updateCategoryFilter = (categoryName) => {
+  const updateDescriptionFilter = (value) => {
     setFilters({
       ...filters,
-      category: categoryName
+      description: value
+    });
+    setOpenDescriptionPopover(false);
+  };
+
+  const updateCategoryFilter = (value) => {
+    setFilters({
+      ...filters,
+      category: value
     });
     setOpenCategoryPopover(false);
   };
 
-  const updatePaymentMethodFilter = (paymentMethod) => {
+  const updateStatusFilter = (value) => {
     setFilters({
       ...filters,
-      paymentMethod: paymentMethod
+      status: value
     });
-    setOpenPaymentMethodPopover(false);
-  };
-
-  const handlePaymentMethodChange = (paymentMethod) => {
-    setCurrentExpense(prev => ({ ...prev, paymentMethod: paymentMethod }));
+    setOpenStatusPopover(false);
   };
 
   return (
     <div>
       <PageHeader 
         title="Registro de Despesas - FinQ" 
-        description="Cadastre e visualize as despesas" 
+        description="Cadastre e visualize suas despesas" 
       />
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      <div className="grid gap-4 md:grid-cols-2 mb-6">
         <Card>
-          <CardContent className="pt-6">
-            <h3 className="text-sm font-medium text-muted-foreground">Valor total</h3>
-            <p className="text-2xl font-bold">R$ {summaryData.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total de Despesas</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              R$ {totalExpensesValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Valor total de todas as despesas filtradas
+            </p>
           </CardContent>
         </Card>
+
         <Card>
-          <CardContent className="pt-6">
-            <h3 className="text-sm font-medium text-muted-foreground">Quantidade</h3>
-            <p className="text-2xl font-bold">{summaryData.totalCount}</p>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Quantidade de Despesas</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalExpensesCount}</div>
+            <p className="text-xs text-muted-foreground">
+              Número total de despesas registradas
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -321,7 +567,7 @@ export default function ExpensesPage() {
             onChange={handleSearchChange}
           />
         </div>
-
+        
         <div className="flex flex-wrap gap-2">
           {/* Filter by Date */}
           {availableFilters.find(f => f.id === 'date')?.enabled && (
@@ -342,7 +588,7 @@ export default function ExpensesPage() {
                       from: filters.date.from,
                       to: filters.date.to
                     }}
-                    onSelect={updateDateFilter}
+                    onSelect={(range) => updateDateFilter(range || { from: undefined, to: undefined })}
                     numberOfMonths={1}
                     className="p-3 pointer-events-auto"
                   />
@@ -366,15 +612,50 @@ export default function ExpensesPage() {
             </Popover>
           )}
 
-          {/* Filter by Category */}
-          {availableFilters.find(f => f.id === 'category')?.enabled && (
-            <Popover 
-              open={openCategoryPopover} 
-              onOpenChange={setOpenCategoryPopover}
-            >
+          {/* Filter by Description */}
+          {availableFilters.find(f => f.id === 'description')?.enabled && (
+            <Popover open={openDescriptionPopover} onOpenChange={setOpenDescriptionPopover}>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="h-10">
                   <FileText className="mr-2 h-4 w-4" />
+                  {filters.description || "Descrição"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[250px] p-3" align="start">
+                <div className="space-y-3">
+                  <Label htmlFor="description-filter">Filtrar por descrição</Label>
+                  <Input 
+                    id="description-filter" 
+                    placeholder="Digite parte da descrição"
+                    value={filters.description}
+                    onChange={(e) => setFilters({...filters, description: e.target.value})}
+                  />
+                  <div className="flex justify-end gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => updateDescriptionFilter("")}
+                    >
+                      Limpar
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => setOpenDescriptionPopover(false)}
+                    >
+                      Aplicar
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
+
+          {/* Filter by Category */}
+          {availableFilters.find(f => f.id === 'category')?.enabled && (
+            <Popover open={openCategoryPopover} onOpenChange={setOpenCategoryPopover}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="h-10">
+                  <Tags className="mr-2 h-4 w-4" />
                   {filters.category || "Categoria"}
                 </Button>
               </PopoverTrigger>
@@ -397,16 +678,16 @@ export default function ExpensesPage() {
                     </CommandItem>
                     {categories.map((category) => (
                       <CommandItem
-                        key={category.id}
-                        onSelect={() => updateCategoryFilter(category.name)}
+                        key={category}
+                        onSelect={() => updateCategoryFilter(category)}
                       >
                         <Check
                           className={cn(
                             "mr-2 h-4 w-4",
-                            filters.category === category.name ? "opacity-100" : "opacity-0"
+                            filters.category === category ? "opacity-100" : "opacity-0"
                           )}
                         />
-                        {category.name}
+                        {category}
                       </CommandItem>
                     ))}
                   </CommandGroup>
@@ -415,37 +696,44 @@ export default function ExpensesPage() {
             </Popover>
           )}
 
-          {/* Filter by Payment Method */}
-          {availableFilters.find(f => f.id === 'paymentMethod')?.enabled && (
-            <Popover
-              open={openPaymentMethodPopover}
-              onOpenChange={setOpenPaymentMethodPopover}
-            >
+          {/* Filter by Status */}
+          {availableFilters.find(f => f.id === 'status')?.enabled && (
+            <Popover open={openStatusPopover} onOpenChange={setOpenStatusPopover}>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="h-10">
-                  <CreditCard className="mr-2 h-4 w-4" />
-                  {filters.paymentMethod ? paymentOptions.find(p => p.id === filters.paymentMethod)?.name || filters.paymentMethod : "Método de Pagamento"}
+                  <Tags className="mr-2 h-4 w-4" />
+                  {filters.status || "Status"}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-[200px] p-0">
                 <Command>
-                  <CommandInput placeholder="Buscar método..." />
-                  <CommandEmpty>Nenhum método encontrado.</CommandEmpty>
+                  <CommandInput placeholder="Buscar status..." />
+                  <CommandEmpty>Nenhum status encontrado.</CommandEmpty>
                   <CommandGroup>
-                    {paymentOptions.map((option) => (
+                    <CommandItem
+                      onSelect={() => updateStatusFilter("")}
+                      className="flex items-center"
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          !filters.status ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      <span>Todos</span>
+                    </CommandItem>
+                    {statusOptions.map((status) => (
                       <CommandItem
-                        key={option.id}
-                        onSelect={() => updatePaymentMethodFilter(option.id)}
-                        className="flex items-center"
+                        key={status}
+                        onSelect={() => updateStatusFilter(status)}
                       >
                         <Check
                           className={cn(
                             "mr-2 h-4 w-4",
-                            filters.paymentMethod === option.id ? "opacity-100" : "opacity-0"
+                            filters.status === status ? "opacity-100" : "opacity-0"
                           )}
                         />
-                        <option.icon className="mr-2 h-4 w-4" />
-                        <span>{option.name}</span>
+                        {status}
                       </CommandItem>
                     ))}
                   </CommandGroup>
@@ -475,15 +763,20 @@ export default function ExpensesPage() {
               ))}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={resetFilters}>
-                <X className="mr-2 h-4 w-4" />
+                <Check className="mr-2 h-4 w-4" />
                 <span>Limpar Filtros</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-
-          <Button onClick={() => setIsNewEntryDialogOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" /> Nova Despesa
-          </Button>
+          
+          <div className="flex space-x-2">
+            <Button onClick={() => setIsCategoryDialogOpen(true)} variant="outline">
+              <Plus className="mr-2 h-4 w-4" /> Nova Categoria
+            </Button>
+            <Button onClick={() => setIsDialogOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" /> Nova Despesa
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -495,8 +788,10 @@ export default function ExpensesPage() {
                 <TableHead>Data</TableHead>
                 <TableHead>Descrição</TableHead>
                 <TableHead>Categoria</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Forma de Pgto</TableHead>
+                <TableHead>Parcelas</TableHead>
                 <TableHead className="text-right">Valor</TableHead>
-                <TableHead>Método de Pagamento</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -509,11 +804,48 @@ export default function ExpensesPage() {
                     </TableCell>
                     <TableCell>{expense.description}</TableCell>
                     <TableCell>{expense.category}</TableCell>
+                    <TableCell>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="ghost" className="h-8 p-2">
+                            <Badge 
+                              variant={
+                                expense.status === "Pago" ? "default" : 
+                                expense.status === "Pendente" ? "secondary" : "destructive"
+                              }
+                            >
+                              {expense.status}
+                            </Badge>
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-40 p-2">
+                          <div className="grid gap-2">
+                            {statusOptions.map((status) => (
+                              <Button 
+                                key={status} 
+                                variant="ghost" 
+                                className="justify-start text-sm"
+                                onClick={() => handleStatusChange(expense.id, status)}
+                              >
+                                {status}
+                              </Button>
+                            ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </TableCell>
+                    <TableCell>{expense.paymentType}</TableCell>
+                    <TableCell>
+                      {expense.paymentType === "Parcelado" ? (
+                        <Badge variant="outline">
+                          {expense.installments.current} / {expense.installments.total}
+                        </Badge>
+                      ) : (
+                        "-"
+                      )}
+                    </TableCell>
                     <TableCell className="text-right">
                       R$ {expense.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </TableCell>
-                    <TableCell>
-                      {paymentOptions.find(p => p.id === expense.paymentMethod)?.name || expense.paymentMethod}
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
@@ -524,13 +856,18 @@ export default function ExpensesPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleCloneExpense(expense.id)}>
-                            <Copy className="mr-2 h-4 w-4" />
-                            <span>Clonar</span>
+                          <DropdownMenuLabel>Ações</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => handleEditExpense(expense)}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            <span>Editar</span>
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handlePrintExpense(expense.id)}>
-                            <Printer className="mr-2 h-4 w-4" />
-                            <span>Imprimir</span>
+                          <DropdownMenuItem 
+                            onClick={() => handleDeleteExpense(expense)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash className="mr-2 h-4 w-4" />
+                            <span>Excluir</span>
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -539,7 +876,7 @@ export default function ExpensesPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
+                  <TableCell colSpan={8} className="h-24 text-center">
                     Nenhuma despesa encontrada.
                   </TableCell>
                 </TableRow>
@@ -549,90 +886,266 @@ export default function ExpensesPage() {
         </CardContent>
       </Card>
 
-      {/* New Entry Dialog */}
-      <Dialog open={isNewEntryDialogOpen} onOpenChange={setIsNewEntryDialogOpen}>
+      {/* Add Category Dialog */}
+      <Dialog open={isCategoryDialogOpen} onOpenChange={setIsCategoryDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Nova Despesa</DialogTitle>
-            <DialogDescription>Adicione uma nova despesa ao registro.</DialogDescription>
+            <DialogTitle>Nova Categoria de Despesa</DialogTitle>
+            <DialogDescription>
+              Adicione uma nova categoria para classificar suas despesas.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="category-name">Nome da Categoria *</Label>
+              <Input 
+                id="category-name" 
+                value={newCategory}
+                onChange={(e) => setNewCategory(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCategoryDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleAddCategory}>Adicionar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Edit Expense Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Editar Despesa</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label htmlFor="description">Descrição</Label>
-              <Input 
-                id="description" 
-                name="description"
-                value={currentExpense.description}
-                onChange={handleInputChange}
+              <Input
+                id="description"
+                value={editingExpense?.description || ""}
+                onChange={(e) => setEditingExpense({...editingExpense, description: e.target.value})}
               />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="category">Categoria</Label>
-              <Select 
-                value={currentExpense.category} 
-                onValueChange={(value) => setCurrentExpense(prev => ({ ...prev, category: value }))}
+              <Select
+                value={editingExpense?.category || ""}
+                onValueChange={(value) => setEditingExpense({...editingExpense, category: value})}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione" />
+                <SelectTrigger id="category">
+                  <SelectValue placeholder="Selecione uma categoria" />
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map(category => (
-                    <SelectItem key={category.id} value={category.name}>
-                      {category.name}
+                    <SelectItem key={category} value={category}>
+                      {category}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="value">Valor</Label>
-              <Input 
-                type="number" 
-                id="value" 
-                name="value"
-                value={currentExpense.value}
-                onChange={handleInputChange}
+              <Label htmlFor="value">Valor (R$)</Label>
+              <Input
+                id="value"
+                type="number"
+                step="0.01"
+                value={editingExpense?.value || ""}
+                onChange={(e) => setEditingExpense({...editingExpense, value: parseFloat(e.target.value) || 0})}
               />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="date">Data</Label>
-              <Input 
-                type="date" 
+              <Input
                 id="date"
-                name="date"
-                value={currentExpense.date}
-                onChange={handleInputChange}
+                type="date"
+                value={editingExpense?.date || ""}
+                onChange={(e) => setEditingExpense({...editingExpense, date: e.target.value})}
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="paymentMethod">Método de Pagamento</Label>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between">
-                    {paymentOptions.find(option => option.id === currentExpense.paymentMethod)?.name || "Selecione"}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>Selecione o método</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {paymentOptions.map((option) => (
-                    <DropdownMenuCheckboxItem
-                      key={option.id}
-                      checked={option.id === currentExpense.paymentMethod}
-                      onCheckedChange={() => handlePaymentMethodChange(option.id)}
-                    >
-                      <option.icon className="mr-2 h-4 w-4" />
-                      <span>{option.name}</span>
-                    </DropdownMenuCheckboxItem>
+              <Label htmlFor="paymentType">Forma de Pagamento</Label>
+              <Select
+                value={editingExpense?.paymentType || "À Vista"}
+                onValueChange={(value) => setEditingExpense({...editingExpense, paymentType: value})}
+                disabled={editingExpense?.installments?.current > 1} // Disable changing payment type for ongoing installments
+              >
+                <SelectTrigger id="paymentType">
+                  <SelectValue placeholder="Selecione a forma de pagamento" />
+                </SelectTrigger>
+                <SelectContent>
+                  {paymentTypeOptions.map(type => (
+                    <SelectItem key={type} value={type}>
+                      {type}
+                    </SelectItem>
                   ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                </SelectContent>
+              </Select>
             </div>
+            {editingExpense?.paymentType === "Parcelado" && (
+              <div className="grid gap-2">
+                <Label htmlFor="installments">Parcelas</Label>
+                <div className="flex items-center">
+                  <span>
+                    {editingExpense?.installments?.current} / {editingExpense?.installments?.total}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsNewEntryDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSaveNewEntry}>Salvar</Button>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleUpdateExpense}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Confirmar Exclusão</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja excluir esta despesa? Esta ação não pode ser desfeita.
+              {expenseToDelete?.paymentType === 'Parcelado' && expenseToDelete?.installments?.total > 1 && (
+                <p className="mt-2 font-medium text-destructive">
+                  Atenção: Esta é uma despesa parcelada. No momento, apenas esta parcela será excluída.
+                </p>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="font-medium">{expenseToDelete?.description}</p>
+            <p className="text-muted-foreground">R$ {expenseToDelete?.value?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            {expenseToDelete?.paymentType === 'Parcelado' && (
+              <p className="text-muted-foreground">
+                Parcela {expenseToDelete?.installments?.current} de {expenseToDelete?.installments?.total}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>Cancelar</Button>
+            <Button variant="destructive" onClick={confirmDeleteExpense}>Excluir</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Expense Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-[625px]">
+          <DialogHeader>
+            <DialogTitle>Adicionar Nova Despesa</DialogTitle>
+            <DialogDescription>
+              Preencha os detalhes da despesa. Você pode adicionar múltiplas despesas de uma vez.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2">
+            {expenseItems.map((item, index) => (
+              <Card key={item.id} className="p-4">
+                <div className="flex justify-between items-center mb-4">
+                  <CardTitle className="text-lg">Item {index + 1}</CardTitle>
+                  {expenseItems.length > 1 && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => handleRemoveExpenseItem(item.id)}
+                    >
+                      <Trash className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+                <div className="grid gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor={`description-${item.id}`}>Descrição *</Label>
+                    <Input 
+                      id={`description-${item.id}`}
+                      value={item.description}
+                      onChange={(e) => handleExpenseItemChange(item.id, 'description', e.target.value)}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor={`category-${item.id}`}>Categoria *</Label>
+                    <Select
+                      value={item.category}
+                      onValueChange={(value) => handleExpenseItemChange(item.id, 'category', value)}
+                    >
+                      <SelectTrigger id={`category-${item.id}`}>
+                        <SelectValue placeholder="Selecione uma categoria" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map(category => (
+                          <SelectItem key={category} value={category}>
+                            {category}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor={`value-${item.id}`}>Valor (R$) *</Label>
+                    <Input 
+                      id={`value-${item.id}`}
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={item.value}
+                      onChange={(e) => handleExpenseItemChange(item.id, 'value', e.target.value)}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor={`date-${item.id}`}>Data *</Label>
+                    <Input 
+                      id={`date-${item.id}`}
+                      type="date"
+                      value={item.date}
+                      onChange={(e) => handleExpenseItemChange(item.id, 'date', e.target.value)}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor={`paymentType-${item.id}`}>Forma de Pagamento *</Label>
+                    <Select
+                      value={item.paymentType}
+                      onValueChange={(value) => handleExpenseItemChange(item.id, 'paymentType', value)}
+                    >
+                      <SelectTrigger id={`paymentType-${item.id}`}>
+                        <SelectValue placeholder="Selecione a forma de pagamento" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {paymentTypeOptions.map(type => (
+                          <SelectItem key={type} value={type}>
+                            {type}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {item.paymentType === "Parcelado" && (
+                    <div className="grid gap-2">
+                      <Label htmlFor={`installments-${item.id}`}>Número de Parcelas *</Label>
+                      <Input 
+                        id={`installments-${item.id}`}
+                        type="number"
+                        min="2"
+                        value={item.installments}
+                        onChange={(e) => handleExpenseItemChange(item.id, 'installments', Math.max(2, parseInt(e.target.value) || 2))}
+                      />
+                    </div>
+                  )}
+                </div>
+              </Card>
+            ))}
+            <Button 
+              variant="outline" 
+              className="w-full"
+              onClick={handleAddExpenseItem}
+            >
+              <Plus className="mr-2 h-4 w-4" /> Adicionar Outro Item
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleAddExpenses}>Salvar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
