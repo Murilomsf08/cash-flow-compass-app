@@ -66,6 +66,9 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   ],
 };
 
+// Define a "login only" type for local comparison, including password
+type AuthMockUser = User & { password: string };
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   
@@ -83,27 +86,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   const login = async (email: string, password: string) => {
     // Mock authentication - in a real app this would call an API
-    // Using the same mock users from the LoginPage
-    const MOCK_USERS = [
+    // The id:1 is owner, id:2 is admin (approved=true)
+    const MOCK_USERS: AuthMockUser[] = [
       { id: 1, name: "Admin", email: "admin@finq.com", password: "admin123", role: "owner", approved: true },
       { id: 2, name: "Gerente", email: "gerente@finq.com", password: "gerente123", role: "admin", approved: true },
       { id: 3, name: "Colaborador", email: "colaborador@finq.com", password: "colaborador123", role: "collaborator", approved: true },
       { id: 4, name: "Pendente", email: "pendente@finq.com", password: "pendente123", role: "collaborator", approved: false },
-    ] as User[];
+    ];
     
-    const user = MOCK_USERS.find(u => u.email === email && u.password === password);
+    const foundUser = MOCK_USERS.find(u => u.email === email && u.password === password);
     
-    if (!user) {
+    if (!foundUser) {
       return { success: false, message: "E-mail ou senha incorretos." };
     }
     
-    if (!user.approved) {
+    if (!foundUser.approved) {
       return { success: false, message: "Seu acesso ainda não foi aprovado." };
     }
     
-    // Store user in state and localStorage
-    setUser(user);
-    localStorage.setItem("currentUser", JSON.stringify(user));
+    // Remove password from user object before saving/using it as a session
+    const { password: _pw, ...userNoPassword } = foundUser;
+
+    setUser(userNoPassword);
+    localStorage.setItem("currentUser", JSON.stringify(userNoPassword));
     
     return { success: true };
   };
@@ -115,7 +120,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   const hasPermission = (permission: string) => {
     if (!user) return false;
-    
     const userPermissions = ROLE_PERMISSIONS[user.role as UserRole];
     return userPermissions.includes(permission);
   };
