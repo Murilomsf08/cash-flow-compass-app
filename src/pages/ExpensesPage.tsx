@@ -44,9 +44,10 @@ import {
   MoreVertical,
   Filter,
   Calendar,
-  Users,
-  ShoppingBag,
-  Tags
+  Money,
+  CreditCard,
+  Wallet,
+  PiggyBank
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import {
@@ -65,25 +66,28 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 
 // Mock data - later would come from a real API/database
 const initialExpenses = [
-  { id: 1, name: "Aluguel", category: "Moradia", value: 1200, date: "2025-03-15", installments: 1, paid: true, description: "Aluguel do apartamento" },
-  { id: 2, name: "Supermercado", category: "Alimentação", value: 500, date: "2025-03-20", installments: 1, paid: true, description: "Compras do mês" },
-  { id: 3, name: "Conta de Luz", category: "Moradia", value: 150, date: "2025-03-25", installments: 1, paid: false, description: "Conta de luz do apartamento" },
-  { id: 4, name: "Mensalidade da Faculdade", category: "Educação", value: 800, date: "2025-04-01", installments: 12, paid: false, description: "Mensalidade da faculdade" },
-  { id: 5, name: "Restaurante", category: "Lazer", value: 100, date: "2025-04-02", installments: 1, paid: true, description: "Almoço no restaurante" },
+  { id: 1, description: "Aluguel", category: "Moradia", value: 1200, date: "2025-03-15", paymentMethod: "creditCard" },
+  { id: 2, description: "Supermercado", category: "Alimentação", value: 350, date: "2025-03-20", paymentMethod: "money" },
+  { id: 3, description: "Conta de Luz", category: "Moradia", value: 180, date: "2025-03-25", paymentMethod: "debitCard" },
+  { id: 4, description: "Transporte", category: "Deslocamento", value: 90, date: "2025-04-01", paymentMethod: "money" },
+  { id: 5, description: "Restaurante", category: "Lazer", value: 200, date: "2025-04-02", paymentMethod: "creditCard" },
 ];
 
 // Mock category data
 const categories = [
   { id: 1, name: "Moradia" },
   { id: 2, name: "Alimentação" },
-  { id: 3, name: "Educação" },
+  { id: 3, name: "Deslocamento" },
   { id: 4, name: "Lazer" },
-  { id: 5, name: "Transporte" },
+  { id: 5, name: "Outros" },
 ];
 
-const statusOptions = [
-  { value: true, label: "Pago", color: "bg-green-500" },
-  { value: false, label: "Pendente", color: "bg-red-500" },
+// Mock payment method data
+const paymentOptions = [
+  { id: "money", name: "Dinheiro", icon: Money },
+  { id: "creditCard", name: "Cartão de Crédito", icon: CreditCard },
+  { id: "debitCard", name: "Cartão de Débito", icon: Wallet },
+  { id: "savings", name: "Poupança", icon: PiggyBank },
 ];
 
 export default function ExpensesPage() {
@@ -93,34 +97,37 @@ export default function ExpensesPage() {
   const [isNewEntryDialogOpen, setIsNewEntryDialogOpen] = useState(false);
   
   // Form states
-  const [selectedCategory, setSelectedCategory] = useState("");
-  const [installments, setInstallments] = useState(1);
-  
+  const [currentExpense, setCurrentExpense] = useState({
+    description: "",
+    category: "",
+    value: 0,
+    date: new Date().toISOString().split('T')[0],
+    paymentMethod: "money",
+  });
+
   // Filter states
   const [filters, setFilters] = useState({
     date: { from: undefined, to: undefined },
     category: "",
-    status: "",
+    paymentMethod: "",
   });
 
   // Available filter options
   const [availableFilters, setAvailableFilters] = useState([
     { id: "date", name: "Data", enabled: true, icon: Calendar },
-    { id: "category", name: "Categoria", enabled: true, icon: ShoppingBag },
-    { id: "status", name: "Status", enabled: true, icon: Tags },
+    { id: "category", name: "Categoria", enabled: true, icon: FileText },
+    { id: "paymentMethod", name: "Método de Pagamento", enabled: true, icon: CreditCard },
   ]);
 
-  // Filter popup states
+  // Filter popup states - Initialize with closed state
   const [openDatePopover, setOpenDatePopover] = useState(false);
   const [openCategoryPopover, setOpenCategoryPopover] = useState(false);
-  const [openStatusPopover, setOpenStatusPopover] = useState(false);
+  const [openPaymentMethodPopover, setOpenPaymentMethodPopover] = useState(false);
 
   // Summary data
   const [summaryData, setSummaryData] = useState({
     totalValue: 0,
     totalCount: 0,
-    totalPaid: 0,
-    totalPending: 0
   });
 
   const handleSearchChange = (e) => {
@@ -132,8 +139,8 @@ export default function ExpensesPage() {
     return expenses.filter(expense => {
       // Text search filter
       const searchMatch = searchTerm ? 
-        expense.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        expense.description.toLowerCase().includes(searchTerm.toLowerCase()) : 
+        expense.description.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        expense.category.toLowerCase().includes(searchTerm.toLowerCase()) : 
         true;
       
       // Date filter
@@ -144,10 +151,10 @@ export default function ExpensesPage() {
       // Category filter
       const categoryMatch = filters.category ? expense.category === filters.category : true;
       
-      // Status filter
-      const statusMatch = filters.status !== "" ? expense.paid === (filters.status === "true") : true;
+      // Payment Method filter
+      const paymentMethodMatch = filters.paymentMethod ? expense.paymentMethod === filters.paymentMethod : true;
       
-      return searchMatch && dateMatch && categoryMatch && statusMatch;
+      return searchMatch && dateMatch && categoryMatch && paymentMethodMatch;
     });
   };
 
@@ -156,74 +163,81 @@ export default function ExpensesPage() {
   // Update summary data based on filtered expenses
   useEffect(() => {
     const totalValue = filteredExpenses.reduce((sum, expense) => sum + expense.value, 0);
-    const totalPaid = filteredExpenses.filter(expense => expense.paid).length;
-    const totalPending = filteredExpenses.filter(expense => !expense.paid).length;
     
     setSummaryData({
       totalValue,
       totalCount: filteredExpenses.length,
-      totalPaid,
-      totalPending
     });
   }, [filteredExpenses]);
 
-  const getStatusBadge = (status) => {
-    const statusOption = statusOptions.find(option => option.value === status);
-    return (
-      <Badge className={`${statusOption?.color} text-white`}>
-        {statusOption?.label || status}
-      </Badge>
-    );
-  };
-
-  const handleChangeStatus = (id, newStatus) => {
-    setExpenses(expenses.map(expense => 
-      expense.id === id ? { ...expense, paid: newStatus } : expense
-    ));
-    
-    toast({
-      title: "Status atualizado",
-      description: `O status da despesa foi alterado para ${statusOptions.find(opt => opt.value === newStatus)?.label}.`
-    });
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setCurrentExpense(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSaveNewEntry = () => {
     // Validation
-    if (!selectedCategory) {
+    if (!currentExpense.description || !currentExpense.category || !currentExpense.value || !currentExpense.date || !currentExpense.paymentMethod) {
       toast({
         title: "Campos obrigatórios",
-        description: "Por favor, selecione uma categoria.",
+        description: "Por favor, preencha todos os campos.",
         variant: "destructive"
       });
       return;
     }
 
-    // Create new expense entry for each installment
-    for (let i = 0; i < installments; i++) {
-      const newExpense = {
-        id: expenses.length + 1 + i,
-        name: "Nova Despesa",
-        category: categories.find(c => c.id.toString() === selectedCategory)?.name || "",
-        value: 100,
-        date: new Date().toISOString().split('T')[0],
-        installments: installments,
-        paid: false,
-        description: `Mês ${i + 1} de ${installments.toString()}`
-      };
+    // Create new expense entry
+    const newExpense = {
+      id: expenses.length + 1,
+      description: currentExpense.description,
+      category: currentExpense.category,
+      value: parseFloat(currentExpense.value),
+      date: currentExpense.date,
+      paymentMethod: currentExpense.paymentMethod,
+    };
 
-      setExpenses(prevExpenses => [...prevExpenses, newExpense]);
-    }
-    
+    setExpenses([...expenses, newExpense]);
     setIsNewEntryDialogOpen(false);
     
     // Reset form
-    setSelectedCategory("");
-    setInstallments(1);
+    setCurrentExpense({
+      description: "",
+      category: "",
+      value: 0,
+      date: new Date().toISOString().split('T')[0],
+      paymentMethod: "money",
+    });
 
     toast({
       title: "Despesa registrada",
       description: "A despesa foi adicionada com sucesso."
     });
+  };
+
+  const handleCloneExpense = (id) => {
+    const expenseToClone = expenses.find(expense => expense.id === id);
+    if (expenseToClone) {
+      const clonedExpense = {
+        ...expenseToClone,
+        id: expenses.length + 1,
+        date: new Date().toISOString().split('T')[0],
+      };
+      
+      setExpenses([...expenses, clonedExpense]);
+      
+      toast({
+        title: "Despesa clonada",
+        description: "Uma cópia da despesa foi criada com sucesso."
+      });
+    }
+  };
+
+  const handlePrintExpense = (id) => {
+    toast({
+      title: "Imprimir despesa",
+      description: "Enviando despesa para impressão..."
+    });
+    // In a real app, this would trigger a print function
   };
 
   const handleToggleFilter = (filterId) => {
@@ -236,7 +250,7 @@ export default function ExpensesPage() {
     setFilters({
       date: { from: undefined, to: undefined },
       category: "",
-      status: ""
+      paymentMethod: "",
     });
     
     toast({
@@ -245,12 +259,12 @@ export default function ExpensesPage() {
     });
   };
 
+  // Fixed filter handlers to avoid infinite loops
   const updateDateFilter = (dateRange) => {
     setFilters({
       ...filters,
-      date: dateRange
+      date: dateRange || { from: undefined, to: undefined }
     });
-    setOpenDatePopover(false);
   };
 
   const updateCategoryFilter = (categoryName) => {
@@ -261,12 +275,16 @@ export default function ExpensesPage() {
     setOpenCategoryPopover(false);
   };
 
-  const updateStatusFilter = (statusValue) => {
+  const updatePaymentMethodFilter = (paymentMethod) => {
     setFilters({
       ...filters,
-      status: statusValue
+      paymentMethod: paymentMethod
     });
-    setOpenStatusPopover(false);
+    setOpenPaymentMethodPopover(false);
+  };
+
+  const handlePaymentMethodChange = (paymentMethod) => {
+    setCurrentExpense(prev => ({ ...prev, paymentMethod: paymentMethod }));
   };
 
   return (
@@ -277,7 +295,7 @@ export default function ExpensesPage() {
       />
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <Card>
           <CardContent className="pt-6">
             <h3 className="text-sm font-medium text-muted-foreground">Valor total</h3>
@@ -290,18 +308,6 @@ export default function ExpensesPage() {
             <p className="text-2xl font-bold">{summaryData.totalCount}</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <h3 className="text-sm font-medium text-muted-foreground">Total Pago</h3>
-            <p className="text-2xl font-bold">{summaryData.totalPaid}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <h3 className="text-sm font-medium text-muted-foreground">Total Pendente</h3>
-            <p className="text-2xl font-bold">{summaryData.totalPending}</p>
-          </CardContent>
-        </Card>
       </div>
 
       <div className="flex flex-col md:flex-row md:items-center gap-3 mb-6">
@@ -309,7 +315,7 @@ export default function ExpensesPage() {
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Buscar por nome ou descrição..." 
+            placeholder="Buscar por descrição ou categoria..." 
             className="pl-8"
             value={searchTerm}
             onChange={handleSearchChange}
@@ -336,7 +342,7 @@ export default function ExpensesPage() {
                       from: filters.date.from,
                       to: filters.date.to
                     }}
-                    onSelect={(range) => updateDateFilter(range || { from: undefined, to: undefined })}
+                    onSelect={updateDateFilter}
                     numberOfMonths={1}
                     className="p-3 pointer-events-auto"
                   />
@@ -362,10 +368,13 @@ export default function ExpensesPage() {
 
           {/* Filter by Category */}
           {availableFilters.find(f => f.id === 'category')?.enabled && (
-            <Popover open={openCategoryPopover} onOpenChange={setOpenCategoryPopover}>
+            <Popover 
+              open={openCategoryPopover} 
+              onOpenChange={setOpenCategoryPopover}
+            >
               <PopoverTrigger asChild>
                 <Button variant="outline" className="h-10">
-                  <ShoppingBag className="mr-2 h-4 w-4" />
+                  <FileText className="mr-2 h-4 w-4" />
                   {filters.category || "Categoria"}
                 </Button>
               </PopoverTrigger>
@@ -406,47 +415,37 @@ export default function ExpensesPage() {
             </Popover>
           )}
 
-          {/* Filter by Status */}
-          {availableFilters.find(f => f.id === 'status')?.enabled && (
-            <Popover open={openStatusPopover} onOpenChange={setOpenStatusPopover}>
+          {/* Filter by Payment Method */}
+          {availableFilters.find(f => f.id === 'paymentMethod')?.enabled && (
+            <Popover
+              open={openPaymentMethodPopover}
+              onOpenChange={setOpenPaymentMethodPopover}
+            >
               <PopoverTrigger asChild>
                 <Button variant="outline" className="h-10">
-                  <Tags className="mr-2 h-4 w-4" />
-                  {filters.status ? statusOptions.find(s => s.value.toString() === filters.status)?.label || "Status" : "Status"}
+                  <CreditCard className="mr-2 h-4 w-4" />
+                  {filters.paymentMethod ? paymentOptions.find(p => p.id === filters.paymentMethod)?.name || filters.paymentMethod : "Método de Pagamento"}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-[200px] p-0">
                 <Command>
-                  <CommandInput placeholder="Buscar status..." />
-                  <CommandEmpty>Nenhum status encontrado.</CommandEmpty>
+                  <CommandInput placeholder="Buscar método..." />
+                  <CommandEmpty>Nenhum método encontrado.</CommandEmpty>
                   <CommandGroup>
-                    <CommandItem
-                      onSelect={() => updateStatusFilter("")}
-                      className="flex items-center"
-                    >
-                      <Check
-                        className={cn(
-                          "mr-2 h-4 w-4",
-                          !filters.status ? "opacity-100" : "opacity-0"
-                        )}
-                      />
-                      <span>Todos</span>
-                    </CommandItem>
-                    {statusOptions.map((status) => (
+                    {paymentOptions.map((option) => (
                       <CommandItem
-                        key={status.value}
-                        onSelect={() => updateStatusFilter(status.value.toString())}
+                        key={option.id}
+                        onSelect={() => updatePaymentMethodFilter(option.id)}
+                        className="flex items-center"
                       >
                         <Check
                           className={cn(
                             "mr-2 h-4 w-4",
-                            filters.status === status.value.toString() ? "opacity-100" : "opacity-0"
+                            filters.paymentMethod === option.id ? "opacity-100" : "opacity-0"
                           )}
                         />
-                        <div className="flex items-center">
-                          <span className={`w-2 h-2 rounded-full ${status.color} mr-2`}></span>
-                          {status.label}
-                        </div>
+                        <option.icon className="mr-2 h-4 w-4" />
+                        <span>{option.name}</span>
                       </CommandItem>
                     ))}
                   </CommandGroup>
@@ -494,11 +493,10 @@ export default function ExpensesPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Data</TableHead>
-                <TableHead>Despesa</TableHead>
+                <TableHead>Descrição</TableHead>
                 <TableHead>Categoria</TableHead>
                 <TableHead className="text-right">Valor</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Parcelas</TableHead>
+                <TableHead>Método de Pagamento</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -509,34 +507,14 @@ export default function ExpensesPage() {
                     <TableCell>
                       {new Date(expense.date).toLocaleDateString('pt-BR')}
                     </TableCell>
-                    <TableCell>{expense.name}</TableCell>
+                    <TableCell>{expense.description}</TableCell>
                     <TableCell>{expense.category}</TableCell>
                     <TableCell className="text-right">
                       R$ {expense.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </TableCell>
                     <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 p-0">
-                            {getStatusBadge(expense.paid)}
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Alterar status</DropdownMenuLabel>
-                          <DropdownMenuSeparator />
-                          {statusOptions.map(option => (
-                            <DropdownMenuItem 
-                              key={option.value}
-                              onClick={() => handleChangeStatus(expense.id, option.value)}
-                            >
-                              <span className={`w-2 h-2 rounded-full ${option.color} mr-2`}></span>
-                              {option.label}
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      {paymentOptions.find(p => p.id === expense.paymentMethod)?.name || expense.paymentMethod}
                     </TableCell>
-                    <TableCell>{expense.description}</TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -546,17 +524,13 @@ export default function ExpensesPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleCloneExpense(expense.id)}>
                             <Copy className="mr-2 h-4 w-4" />
-                            <span>Duplicar</span>
+                            <span>Clonar</span>
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handlePrintExpense(expense.id)}>
                             <Printer className="mr-2 h-4 w-4" />
                             <span>Imprimir</span>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <FileText className="mr-2 h-4 w-4" />
-                            <span>Gerar Boleto</span>
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -565,7 +539,7 @@ export default function ExpensesPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center">
+                  <TableCell colSpan={6} className="h-24 text-center">
                     Nenhuma despesa encontrada.
                   </TableCell>
                 </TableRow>
@@ -580,20 +554,30 @@ export default function ExpensesPage() {
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Nova Despesa</DialogTitle>
+            <DialogDescription>Adicione uma nova despesa ao registro.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
+              <Label htmlFor="description">Descrição</Label>
+              <Input 
+                id="description" 
+                name="description"
+                value={currentExpense.description}
+                onChange={handleInputChange}
+              />
+            </div>
+            <div className="grid gap-2">
               <Label htmlFor="category">Categoria</Label>
               <Select 
-                value={selectedCategory} 
-                onValueChange={(value) => setSelectedCategory(value)}
+                value={currentExpense.category} 
+                onValueChange={(value) => setCurrentExpense(prev => ({ ...prev, category: value }))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione" />
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map(category => (
-                    <SelectItem key={category.id} value={category.id.toString()}>
+                    <SelectItem key={category.id} value={category.name}>
                       {category.name}
                     </SelectItem>
                   ))}
@@ -601,14 +585,49 @@ export default function ExpensesPage() {
               </Select>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="installments">Parcelas</Label>
+              <Label htmlFor="value">Valor</Label>
               <Input 
-                id="installments" 
-                type="number"
-                min="1"
-                value={installments.toString()}
-                onChange={(e) => setInstallments(parseInt(e.target.value) || 1)}
+                type="number" 
+                id="value" 
+                name="value"
+                value={currentExpense.value}
+                onChange={handleInputChange}
               />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="date">Data</Label>
+              <Input 
+                type="date" 
+                id="date"
+                name="date"
+                value={currentExpense.date}
+                onChange={handleInputChange}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="paymentMethod">Método de Pagamento</Label>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="w-full justify-between">
+                    {paymentOptions.find(option => option.id === currentExpense.paymentMethod)?.name || "Selecione"}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Selecione o método</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {paymentOptions.map((option) => (
+                    <DropdownMenuCheckboxItem
+                      key={option.id}
+                      checked={option.id === currentExpense.paymentMethod}
+                      onCheckedChange={() => handlePaymentMethodChange(option.id)}
+                    >
+                      <option.icon className="mr-2 h-4 w-4" />
+                      <span>{option.name}</span>
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
           <DialogFooter>

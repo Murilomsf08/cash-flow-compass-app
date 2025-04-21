@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -64,7 +63,6 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 
-// Mock data - later would come from a real API/database
 const initialServices = [
   { id: 1, name: "Consultoria", client: "Empresa A", value: 2500, date: "2025-03-15", commission: 250, status: "Pending", seller: "Carlos Silva" },
   { id: 2, name: "Desenvolvimento Web", client: "Empresa B", value: 5000, date: "2025-03-20", commission: 500, status: "Completed", seller: "Ana Martins" },
@@ -73,7 +71,6 @@ const initialServices = [
   { id: 5, name: "Consultoria", client: "Pessoa D", value: 3000, date: "2025-04-02", commission: 300, status: "Completed", seller: "Carlos Silva" },
 ];
 
-// Mock product/service data
 const products = [
   { id: 1, name: "Consultoria", value: 2500 },
   { id: 2, name: "Desenvolvimento Web", value: 5000 },
@@ -81,7 +78,6 @@ const products = [
   { id: 4, name: "Suporte Técnico", value: 800 },
 ];
 
-// Mock client data
 const clients = [
   { id: 1, name: "Empresa A", email: "contato@empresaa.com" },
   { id: 2, name: "Empresa B", email: "contato@empresab.com" },
@@ -89,7 +85,6 @@ const clients = [
   { id: 4, name: "Pessoa D", email: "pessoad@email.com" },
 ];
 
-// Mock seller data
 const sellers = [
   { id: 1, name: "Carlos Silva" },
   { id: 2, name: "Ana Martins" },
@@ -111,29 +106,25 @@ export default function ServicesPage() {
   const [isNewEntryDialogOpen, setIsNewEntryDialogOpen] = useState(false);
   const [isClientDialogOpen, setIsClientDialogOpen] = useState(false);
   
-  // Form states
   const [selectedClient, setSelectedClient] = useState("");
   const [selectedSeller, setSelectedSeller] = useState("");
   const [lineItems, setLineItems] = useState([{ id: 1, product: "", quantity: 1, unitPrice: 0, total: 0 }]);
   const [openClientCombobox, setOpenClientCombobox] = useState(false);
   const [openSellerCombobox, setOpenSellerCombobox] = useState(false);
   
-  // New client form state
   const [newClient, setNewClient] = useState({
     name: "",
     email: "",
   });
 
-  // Filter states
   const [filters, setFilters] = useState({
     date: { from: undefined, to: undefined },
     client: "",
     seller: "",
     product: "",
-    status: "",
+    status: ""
   });
 
-  // Available filter options
   const [availableFilters, setAvailableFilters] = useState([
     { id: "date", name: "Data", enabled: true, icon: Calendar },
     { id: "client", name: "Cliente", enabled: true, icon: Users },
@@ -142,14 +133,12 @@ export default function ServicesPage() {
     { id: "status", name: "Status", enabled: true, icon: Tags },
   ]);
 
-  // Filter popup states - Initialize with closed state
   const [openDatePopover, setOpenDatePopover] = useState(false);
   const [openClientFilterPopover, setOpenClientFilterPopover] = useState(false);
   const [openSellerFilterPopover, setOpenSellerFilterPopover] = useState(false);
   const [openProductPopover, setOpenProductPopover] = useState(false);
   const [openStatusPopover, setOpenStatusPopover] = useState(false);
 
-  // Summary data
   const [summaryData, setSummaryData] = useState({
     totalValue: 0,
     totalCount: 0,
@@ -161,39 +150,31 @@ export default function ServicesPage() {
     setSearchTerm(e.target.value);
   };
 
-  // Filter services based on current filters
-  const filterServices = () => {
+  const filterServices = useCallback(() => {
     return services.filter(service => {
-      // Text search filter
       const searchMatch = searchTerm ? 
         service.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
         service.client.toLowerCase().includes(searchTerm.toLowerCase()) : 
         true;
       
-      // Date filter
       const dateMatch = filters.date.from && filters.date.to ? 
         new Date(service.date) >= filters.date.from && new Date(service.date) <= filters.date.to : 
         true;
       
-      // Client filter
       const clientMatch = filters.client ? service.client === filters.client : true;
       
-      // Seller filter
       const sellerMatch = filters.seller ? service.seller === filters.seller : true;
       
-      // Product/Service filter
       const productMatch = filters.product ? service.name === filters.product : true;
       
-      // Status filter
       const statusMatch = filters.status ? service.status === filters.status : true;
       
       return searchMatch && dateMatch && clientMatch && sellerMatch && productMatch && statusMatch;
     });
-  };
+  }, [services, searchTerm, filters]);
 
   const filteredServices = filterServices();
 
-  // Update summary data based on filtered services
   useEffect(() => {
     const totalValue = filteredServices.reduce((sum, service) => sum + service.value, 0);
     const totalCommission = filteredServices.reduce((sum, service) => sum + service.commission, 0);
@@ -202,7 +183,7 @@ export default function ServicesPage() {
       totalValue,
       totalCount: filteredServices.length,
       totalCommission,
-      discounts: 0 // This would be calculated based on actual discount data
+      discounts: 0
     });
   }, [filteredServices]);
 
@@ -256,7 +237,6 @@ export default function ServicesPage() {
       if (item.id === id) {
         const updatedItem = { ...item, [field]: value };
         
-        // If product or quantity changes, update total
         if (field === 'product') {
           const selectedProduct = products.find(p => p.id.toString() === value);
           updatedItem.unitPrice = selectedProduct ? selectedProduct.value : 0;
@@ -276,7 +256,6 @@ export default function ServicesPage() {
   };
 
   const handleSaveNewEntry = () => {
-    // Validation
     if (!selectedClient || lineItems.some(item => !item.product)) {
       toast({
         title: "Campos obrigatórios",
@@ -286,18 +265,16 @@ export default function ServicesPage() {
       return;
     }
 
-    // Get client name from selected ID
     const clientName = clients.find(c => c.id.toString() === selectedClient)?.name || "";
     const sellerName = sellers.find(s => s.id.toString() === selectedSeller)?.name || "";
 
-    // Create new service entry
     const newService = {
       id: services.length + 1,
       name: lineItems.map(item => products.find(p => p.id.toString() === item.product)?.name).join(", "),
       client: clientName,
       value: calculateTotal(),
       date: new Date().toISOString().split('T')[0],
-      commission: calculateTotal() * 0.10, // Example: 10% commission
+      commission: calculateTotal() * 0.10,
       status: "Pending",
       seller: sellerName
     };
@@ -305,7 +282,6 @@ export default function ServicesPage() {
     setServices([...services, newService]);
     setIsNewEntryDialogOpen(false);
     
-    // Reset form
     setSelectedClient("");
     setSelectedSeller("");
     setLineItems([{ id: 1, product: "", quantity: 1, unitPrice: 0, total: 0 }]);
@@ -317,7 +293,6 @@ export default function ServicesPage() {
   };
 
   const handleSaveNewClient = () => {
-    // Validation
     if (!newClient.name) {
       toast({
         title: "Nome obrigatório",
@@ -327,21 +302,16 @@ export default function ServicesPage() {
       return;
     }
 
-    // Add new client to the list
     const newClientEntry = {
       id: clients.length + 1,
       name: newClient.name,
       email: newClient.email,
     };
 
-    // In a real app, this would be an API call
-    // For now we're just updating our local mock data
     clients.push(newClientEntry);
     
-    // Set the new client as selected
     setSelectedClient(newClientEntry.id.toString());
     
-    // Close dialog and reset form
     setIsClientDialogOpen(false);
     setNewClient({ name: "", email: "" });
 
@@ -375,7 +345,6 @@ export default function ServicesPage() {
       title: "Imprimir serviço",
       description: "Enviando serviço para impressão..."
     });
-    // In a real app, this would trigger a print function
   };
 
   const handleGenerateInvoice = (id) => {
@@ -383,7 +352,6 @@ export default function ServicesPage() {
       title: "Nota fiscal",
       description: "Gerando nota fiscal..."
     });
-    // In a real app, this would trigger an invoice generation
   };
 
   const handleToggleFilter = (filterId) => {
@@ -407,44 +375,53 @@ export default function ServicesPage() {
     });
   };
 
-  // Fixed filter handlers to avoid infinite loops
   const updateDateFilter = (dateRange) => {
-    setFilters({
-      ...filters,
+    setFilters(prev => ({
+      ...prev,
       date: dateRange || { from: undefined, to: undefined }
-    });
+    }));
   };
 
   const updateClientFilter = (clientName) => {
-    setFilters({
-      ...filters,
+    setFilters(prev => ({
+      ...prev,
       client: clientName
-    });
+    }));
     setOpenClientFilterPopover(false);
   };
 
   const updateSellerFilter = (sellerName) => {
-    setFilters({
-      ...filters,
+    setFilters(prev => ({
+      ...prev,
       seller: sellerName
-    });
+    }));
     setOpenSellerFilterPopover(false);
   };
 
   const updateProductFilter = (productName) => {
-    setFilters({
-      ...filters,
+    setFilters(prev => ({
+      ...prev,
       product: productName
-    });
+    }));
     setOpenProductPopover(false);
   };
 
   const updateStatusFilter = (statusValue) => {
-    setFilters({
-      ...filters,
+    setFilters(prev => ({
+      ...prev,
       status: statusValue
-    });
+    }));
     setOpenStatusPopover(false);
+  };
+
+  const handleClientSelect = (clientId) => {
+    setSelectedClient(clientId);
+    setOpenClientCombobox(false);
+  };
+
+  const handleSellerSelect = (sellerId) => {
+    setSelectedSeller(sellerId);
+    setOpenSellerCombobox(false);
   };
 
   return (
@@ -454,7 +431,6 @@ export default function ServicesPage() {
         description="Cadastre e visualize os serviços prestados" 
       />
 
-      {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <Card>
           <CardContent className="pt-6">
@@ -495,247 +471,232 @@ export default function ServicesPage() {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {/* Filter by Date */}
-          {availableFilters.find(f => f.id === 'date')?.enabled && (
-            <Popover open={openDatePopover} onOpenChange={setOpenDatePopover}>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="h-10">
-                  <Calendar className="mr-2 h-4 w-4" />
-                  {filters.date.from && filters.date.to ? 
-                    `${format(filters.date.from, 'dd/MM/yyyy')} - ${format(filters.date.to, 'dd/MM/yyyy')}` : 
-                    "Filtrar por data"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <div className="p-3">
-                  <CalendarComponent
-                    mode="range"
-                    selected={{
-                      from: filters.date.from,
-                      to: filters.date.to
-                    }}
-                    onSelect={updateDateFilter}
-                    numberOfMonths={1}
-                    className="p-3 pointer-events-auto"
-                  />
-                  <div className="flex justify-end gap-2 pt-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => updateDateFilter({ from: undefined, to: undefined })}
-                    >
-                      Limpar
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => setOpenDatePopover(false)}
-                    >
-                      Aplicar
-                    </Button>
-                  </div>
+          <Popover open={openDatePopover} onOpenChange={setOpenDatePopover}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="h-10">
+                <Calendar className="mr-2 h-4 w-4" />
+                {filters.date.from && filters.date.to ? 
+                  `${format(filters.date.from, 'dd/MM/yyyy')} - ${format(filters.date.to, 'dd/MM/yyyy')}` : 
+                  "Filtrar por data"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <div className="p-3">
+                <CalendarComponent
+                  mode="range"
+                  selected={{
+                    from: filters.date.from,
+                    to: filters.date.to
+                  }}
+                  onSelect={updateDateFilter}
+                  numberOfMonths={1}
+                  className="p-3 pointer-events-auto"
+                />
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => updateDateFilter({ from: undefined, to: undefined })}
+                  >
+                    Limpar
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => setOpenDatePopover(false)}
+                  >
+                    Aplicar
+                  </Button>
                 </div>
-              </PopoverContent>
-            </Popover>
-          )}
+              </div>
+            </PopoverContent>
+          </Popover>
 
-          {/* Filter by Client */}
-          {availableFilters.find(f => f.id === 'client')?.enabled && (
-            <Popover 
-              open={openClientFilterPopover} 
-              onOpenChange={setOpenClientFilterPopover}
-            >
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="h-10">
-                  <Users className="mr-2 h-4 w-4" />
-                  {filters.client || "Cliente"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[200px] p-0">
-                <Command>
-                  <CommandInput placeholder="Buscar cliente..." />
-                  <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
-                  <CommandGroup>
+          <Popover 
+            open={openClientFilterPopover} 
+            onOpenChange={setOpenClientFilterPopover}
+          >
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="h-10">
+                <Users className="mr-2 h-4 w-4" />
+                {filters.client || "Cliente"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[200px] p-0">
+              <Command>
+                <CommandInput placeholder="Buscar cliente..." />
+                <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+                <CommandGroup>
+                  <CommandItem
+                    onSelect={() => updateClientFilter("")}
+                    className="flex items-center"
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        !filters.client ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    <span>Todos</span>
+                  </CommandItem>
+                  {clients.map((client) => (
                     <CommandItem
-                      onSelect={() => updateClientFilter("")}
-                      className="flex items-center"
+                      key={client.id}
+                      onSelect={() => updateClientFilter(client.name)}
                     >
                       <Check
                         className={cn(
                           "mr-2 h-4 w-4",
-                          !filters.client ? "opacity-100" : "opacity-0"
+                          filters.client === client.name ? "opacity-100" : "opacity-0"
                         )}
                       />
-                      <span>Todos</span>
+                      {client.name}
                     </CommandItem>
-                    {clients.map((client) => (
-                      <CommandItem
-                        key={client.id}
-                        onSelect={() => updateClientFilter(client.name)}
-                      >
-                        <Check
-                          className={cn(
-                            "mr-2 h-4 w-4",
-                            filters.client === client.name ? "opacity-100" : "opacity-0"
-                          )}
-                        />
-                        {client.name}
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </Command>
-              </PopoverContent>
-            </Popover>
-          )}
+                  ))}
+                </CommandGroup>
+              </Command>
+            </PopoverContent>
+          </Popover>
 
-          {/* Filter by Seller */}
-          {availableFilters.find(f => f.id === 'seller')?.enabled && (
-            <Popover
-              open={openSellerFilterPopover}
-              onOpenChange={setOpenSellerFilterPopover}
-            >
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="h-10">
-                  <Users className="mr-2 h-4 w-4" />
-                  {filters.seller || "Vendedor"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[200px] p-0">
-                <Command>
-                  <CommandInput placeholder="Buscar vendedor..." />
-                  <CommandEmpty>Nenhum vendedor encontrado.</CommandEmpty>
-                  <CommandGroup>
+          <Popover
+            open={openSellerFilterPopover}
+            onOpenChange={setOpenSellerFilterPopover}
+          >
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="h-10">
+                <Users className="mr-2 h-4 w-4" />
+                {filters.seller || "Vendedor"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[200px] p-0">
+              <Command>
+                <CommandInput placeholder="Buscar vendedor..." />
+                <CommandEmpty>Nenhum vendedor encontrado.</CommandEmpty>
+                <CommandGroup>
+                  <CommandItem
+                    onSelect={() => updateSellerFilter("")}
+                    className="flex items-center"
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        !filters.seller ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    <span>Todos</span>
+                  </CommandItem>
+                  {sellers.map((seller) => (
                     <CommandItem
-                      onSelect={() => updateSellerFilter("")}
-                      className="flex items-center"
+                      key={seller.id}
+                      onSelect={() => updateSellerFilter(seller.name)}
                     >
                       <Check
                         className={cn(
                           "mr-2 h-4 w-4",
-                          !filters.seller ? "opacity-100" : "opacity-0"
+                          filters.seller === seller.name ? "opacity-100" : "opacity-0"
                         )}
                       />
-                      <span>Todos</span>
+                      {seller.name}
                     </CommandItem>
-                    {sellers.map((seller) => (
-                      <CommandItem
-                        key={seller.id}
-                        onSelect={() => updateSellerFilter(seller.name)}
-                      >
-                        <Check
-                          className={cn(
-                            "mr-2 h-4 w-4",
-                            filters.seller === seller.name ? "opacity-100" : "opacity-0"
-                          )}
-                        />
-                        {seller.name}
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </Command>
-              </PopoverContent>
-            </Popover>
-          )}
+                  ))}
+                </CommandGroup>
+              </Command>
+            </PopoverContent>
+          </Popover>
 
-          {/* Filter by Product */}
-          {availableFilters.find(f => f.id === 'product')?.enabled && (
-            <Popover
-              open={openProductPopover}
-              onOpenChange={setOpenProductPopover}
-            >
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="h-10">
-                  <ShoppingBag className="mr-2 h-4 w-4" />
-                  {filters.product || "Produto/Serviço"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[200px] p-0">
-                <Command>
-                  <CommandInput placeholder="Buscar produto..." />
-                  <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
-                  <CommandGroup>
+          <Popover
+            open={openProductPopover}
+            onOpenChange={setOpenProductPopover}
+          >
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="h-10">
+                <ShoppingBag className="mr-2 h-4 w-4" />
+                {filters.product || "Produto/Serviço"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[200px] p-0">
+              <Command>
+                <CommandInput placeholder="Buscar produto..." />
+                <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
+                <CommandGroup>
+                  <CommandItem
+                    onSelect={() => updateProductFilter("")}
+                    className="flex items-center"
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        !filters.product ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    <span>Todos</span>
+                  </CommandItem>
+                  {products.map((product) => (
                     <CommandItem
-                      onSelect={() => updateProductFilter("")}
-                      className="flex items-center"
+                      key={product.id}
+                      onSelect={() => updateProductFilter(product.name)}
                     >
                       <Check
                         className={cn(
                           "mr-2 h-4 w-4",
-                          !filters.product ? "opacity-100" : "opacity-0"
+                          filters.product === product.name ? "opacity-100" : "opacity-0"
                         )}
                       />
-                      <span>Todos</span>
+                      {product.name}
                     </CommandItem>
-                    {products.map((product) => (
-                      <CommandItem
-                        key={product.id}
-                        onSelect={() => updateProductFilter(product.name)}
-                      >
-                        <Check
-                          className={cn(
-                            "mr-2 h-4 w-4",
-                            filters.product === product.name ? "opacity-100" : "opacity-0"
-                          )}
-                        />
-                        {product.name}
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </Command>
-              </PopoverContent>
-            </Popover>
-          )}
+                  ))}
+                </CommandGroup>
+              </Command>
+            </PopoverContent>
+          </Popover>
 
-          {/* Filter by Status */}
-          {availableFilters.find(f => f.id === 'status')?.enabled && (
-            <Popover
-              open={openStatusPopover}
-              onOpenChange={setOpenStatusPopover}
-            >
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="h-10">
-                  <Tags className="mr-2 h-4 w-4" />
-                  {filters.status ? statusOptions.find(s => s.value === filters.status)?.label || filters.status : "Status"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[200px] p-0">
-                <Command>
-                  <CommandInput placeholder="Buscar status..." />
-                  <CommandEmpty>Nenhum status encontrado.</CommandEmpty>
-                  <CommandGroup>
+          <Popover
+            open={openStatusPopover}
+            onOpenChange={setOpenStatusPopover}
+          >
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="h-10">
+                <Tags className="mr-2 h-4 w-4" />
+                {filters.status ? statusOptions.find(s => s.value === filters.status)?.label || filters.status : "Status"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[200px] p-0">
+              <Command>
+                <CommandInput placeholder="Buscar status..." />
+                <CommandEmpty>Nenhum status encontrado.</CommandEmpty>
+                <CommandGroup>
+                  <CommandItem
+                    onSelect={() => updateStatusFilter("")}
+                    className="flex items-center"
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        !filters.status ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    <span>Todos</span>
+                  </CommandItem>
+                  {statusOptions.map((status) => (
                     <CommandItem
-                      onSelect={() => updateStatusFilter("")}
-                      className="flex items-center"
+                      key={status.value}
+                      onSelect={() => updateStatusFilter(status.value)}
                     >
                       <Check
                         className={cn(
                           "mr-2 h-4 w-4",
-                          !filters.status ? "opacity-100" : "opacity-0"
+                          filters.status === status.value ? "opacity-100" : "opacity-0"
                         )}
                       />
-                      <span>Todos</span>
+                      <div className="flex items-center">
+                        <span className={`w-2 h-2 rounded-full ${status.color} mr-2`}></span>
+                        {status.label}
+                      </div>
                     </CommandItem>
-                    {statusOptions.map((status) => (
-                      <CommandItem
-                        key={status.value}
-                        onSelect={() => updateStatusFilter(status.value)}
-                      >
-                        <Check
-                          className={cn(
-                            "mr-2 h-4 w-4",
-                            filters.status === status.value ? "opacity-100" : "opacity-0"
-                          )}
-                        />
-                        <div className="flex items-center">
-                          <span className={`w-2 h-2 rounded-full ${status.color} mr-2`}></span>
-                          {status.label}
-                        </div>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </Command>
-              </PopoverContent>
-            </Popover>
-          )}
+                  ))}
+                </CommandGroup>
+              </Command>
+            </PopoverContent>
+          </Popover>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -857,7 +818,6 @@ export default function ServicesPage() {
         </CardContent>
       </Card>
 
-      {/* New Entry Dialog */}
       <Dialog open={isNewEntryDialogOpen} onOpenChange={setIsNewEntryDialogOpen}>
         <DialogContent className="sm:max-w-[700px]">
           <DialogHeader>
@@ -891,10 +851,7 @@ export default function ServicesPage() {
                             <CommandItem
                               key={client.id}
                               value={client.name}
-                              onSelect={() => {
-                                setSelectedClient(client.id.toString());
-                                setOpenClientCombobox(false);
-                              }}
+                              onSelect={() => handleClientSelect(client.id.toString())}
                             >
                               <Check
                                 className={cn(
@@ -939,10 +896,7 @@ export default function ServicesPage() {
                           <CommandItem
                             key={seller.id}
                             value={seller.name}
-                            onSelect={() => {
-                              setSelectedSeller(seller.id.toString());
-                              setOpenSellerCombobox(false);
-                            }}
+                            onSelect={() => handleSellerSelect(seller.id.toString())}
                           >
                             <Check
                               className={cn(
@@ -1044,7 +998,6 @@ export default function ServicesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* New Client Dialog */}
       <Dialog open={isClientDialogOpen} onOpenChange={setIsClientDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
