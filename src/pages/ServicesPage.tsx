@@ -110,7 +110,6 @@ export default function ServicesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isNewEntryDialogOpen, setIsNewEntryDialogOpen] = useState(false);
   const [isClientDialogOpen, setIsClientDialogOpen] = useState(false);
-  const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
   
   // Form states
   const [selectedClient, setSelectedClient] = useState("");
@@ -143,7 +142,7 @@ export default function ServicesPage() {
     { id: "status", name: "Status", enabled: true, icon: Tags },
   ]);
 
-  // Filter popup states
+  // Filter popup states - Initialize with closed state
   const [openDatePopover, setOpenDatePopover] = useState(false);
   const [openClientFilterPopover, setOpenClientFilterPopover] = useState(false);
   const [openSellerFilterPopover, setOpenSellerFilterPopover] = useState(false);
@@ -408,12 +407,12 @@ export default function ServicesPage() {
     });
   };
 
+  // Fixed filter handlers to avoid infinite loops
   const updateDateFilter = (dateRange) => {
     setFilters({
       ...filters,
-      date: dateRange
+      date: dateRange || { from: undefined, to: undefined }
     });
-    setOpenDatePopover(false);
   };
 
   const updateClientFilter = (clientName) => {
@@ -515,7 +514,7 @@ export default function ServicesPage() {
                       from: filters.date.from,
                       to: filters.date.to
                     }}
-                    onSelect={(range) => updateDateFilter(range || { from: undefined, to: undefined })}
+                    onSelect={updateDateFilter}
                     numberOfMonths={1}
                     className="p-3 pointer-events-auto"
                   />
@@ -541,7 +540,10 @@ export default function ServicesPage() {
 
           {/* Filter by Client */}
           {availableFilters.find(f => f.id === 'client')?.enabled && (
-            <Popover open={openClientFilterPopover} onOpenChange={setOpenClientFilterPopover}>
+            <Popover 
+              open={openClientFilterPopover} 
+              onOpenChange={setOpenClientFilterPopover}
+            >
               <PopoverTrigger asChild>
                 <Button variant="outline" className="h-10">
                   <Users className="mr-2 h-4 w-4" />
@@ -587,7 +589,10 @@ export default function ServicesPage() {
 
           {/* Filter by Seller */}
           {availableFilters.find(f => f.id === 'seller')?.enabled && (
-            <Popover open={openSellerFilterPopover} onOpenChange={setOpenSellerFilterPopover}>
+            <Popover
+              open={openSellerFilterPopover}
+              onOpenChange={setOpenSellerFilterPopover}
+            >
               <PopoverTrigger asChild>
                 <Button variant="outline" className="h-10">
                   <Users className="mr-2 h-4 w-4" />
@@ -633,7 +638,10 @@ export default function ServicesPage() {
 
           {/* Filter by Product */}
           {availableFilters.find(f => f.id === 'product')?.enabled && (
-            <Popover open={openProductPopover} onOpenChange={setOpenProductPopover}>
+            <Popover
+              open={openProductPopover}
+              onOpenChange={setOpenProductPopover}
+            >
               <PopoverTrigger asChild>
                 <Button variant="outline" className="h-10">
                   <ShoppingBag className="mr-2 h-4 w-4" />
@@ -679,7 +687,10 @@ export default function ServicesPage() {
 
           {/* Filter by Status */}
           {availableFilters.find(f => f.id === 'status')?.enabled && (
-            <Popover open={openStatusPopover} onOpenChange={setOpenStatusPopover}>
+            <Popover
+              open={openStatusPopover}
+              onOpenChange={setOpenStatusPopover}
+            >
               <PopoverTrigger asChild>
                 <Button variant="outline" className="h-10">
                   <Tags className="mr-2 h-4 w-4" />
