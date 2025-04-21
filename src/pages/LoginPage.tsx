@@ -1,5 +1,6 @@
 
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,17 +8,12 @@ import { Label } from "@/components/ui/label";
 import { DollarSign, Lock, Mail, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-
-// Mock user data - in a real app, this would be stored in a database
-const MOCK_USERS = [
-  { id: 1, name: "Admin", email: "admin@finq.com", password: "admin123", role: "owner", approved: true },
-  { id: 2, name: "Gerente", email: "gerente@finq.com", password: "gerente123", role: "admin", approved: true },
-  { id: 3, name: "Colaborador", email: "colaborador@finq.com", password: "colaborador123", role: "collaborator", approved: true },
-  { id: 4, name: "Pendente", email: "pendente@finq.com", password: "pendente123", role: "collaborator", approved: false },
-];
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function LoginPage() {
+  const navigate = useNavigate();
   const { toast } = useToast();
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
@@ -28,42 +24,25 @@ export default function LoginPage() {
     password: "",
   });
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const user = MOCK_USERS.find(
-      (u) => u.email === email && u.password === password
-    );
+    const result = await login(email, password);
     
-    if (!user) {
+    if (result.success) {
+      toast({
+        title: "Login realizado com sucesso",
+        description: "Bem-vindo ao Sistema FinQ!",
+      });
+      // Redirect to the dashboard page after successful login
+      navigate("/");
+    } else {
       toast({
         title: "Erro de autenticação",
-        description: "E-mail ou senha incorretos.",
+        description: result.message || "E-mail ou senha incorretos.",
         variant: "destructive",
       });
-      return;
     }
-
-    if (!user.approved) {
-      toast({
-        title: "Acesso pendente",
-        description: "Seu acesso ainda não foi aprovado.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // In a real application, we would store user session and redirect
-    toast({
-      title: "Login realizado com sucesso",
-      description: `Bem-vindo, ${user.name}!`,
-    });
-
-    // Store user in localStorage (in a real app, use a proper auth system)
-    localStorage.setItem("currentUser", JSON.stringify(user));
-    
-    // Redirect to homepage
-    window.location.href = "/";
   };
 
   const handleRegister = () => {

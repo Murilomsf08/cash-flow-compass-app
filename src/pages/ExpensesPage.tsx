@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -50,7 +49,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Check } from "lucide-react";
 
-// Mock data (later would come from a real API/database)
 const initialExpenses = [
   { 
     id: 1, 
@@ -144,13 +142,10 @@ const initialExpenses = [
   },
 ];
 
-// Initial categories list
 const initialCategories = ["Fixo", "Variável", "Investimento", "Pessoal", "Impostos"];
 
-// Status options
 const statusOptions = ["Pago", "Pendente", "Cancelado"];
 
-// Payment type options
 const paymentTypeOptions = ["À Vista", "Parcelado"];
 
 export default function ExpensesPage() {
@@ -166,7 +161,6 @@ export default function ExpensesPage() {
   const [categories, setCategories] = useState(initialCategories);
   const [newCategory, setNewCategory] = useState("");
   
-  // Multiple expenses management
   const [expenseItems, setExpenseItems] = useState([
     { 
       id: 1, 
@@ -179,7 +173,6 @@ export default function ExpensesPage() {
     }
   ]);
   
-  // Filter states
   const [filters, setFilters] = useState({
     date: { from: undefined, to: undefined },
     description: "",
@@ -187,7 +180,6 @@ export default function ExpensesPage() {
     status: ""
   });
 
-  // Available filter options
   const [availableFilters, setAvailableFilters] = useState([
     { id: "date", name: "Data", enabled: true, icon: Calendar },
     { id: "description", name: "Descrição", enabled: true, icon: FileText },
@@ -195,7 +187,6 @@ export default function ExpensesPage() {
     { id: "status", name: "Status", enabled: true, icon: Tags }
   ]);
 
-  // Filter popup states
   const [openDatePopover, setOpenDatePopover] = useState(false);
   const [openDescriptionPopover, setOpenDescriptionPopover] = useState(false);
   const [openCategoryPopover, setOpenCategoryPopover] = useState(false);
@@ -246,29 +237,23 @@ export default function ExpensesPage() {
     setSearchTerm(e.target.value);
   };
 
-  // Filter expenses based on the current filters
   const filterExpenses = () => {
     return expenses.filter(expense => {
-      // Search term filter
       const searchMatch = searchTerm ? 
         expense.description.toLowerCase().includes(searchTerm.toLowerCase()) || 
         expense.category.toLowerCase().includes(searchTerm.toLowerCase()) : 
         true;
       
-      // Date filter
       const dateMatch = filters.date.from && filters.date.to ? 
         new Date(expense.date) >= filters.date.from && new Date(expense.date) <= filters.date.to : 
         true;
       
-      // Description filter
       const descriptionMatch = filters.description ? 
         expense.description.toLowerCase().includes(filters.description.toLowerCase()) : 
         true;
       
-      // Category filter
       const categoryMatch = filters.category ? expense.category === filters.category : true;
       
-      // Status filter
       const statusMatch = filters.status ? expense.status === filters.status : true;
       
       return searchMatch && dateMatch && descriptionMatch && categoryMatch && statusMatch;
@@ -277,7 +262,6 @@ export default function ExpensesPage() {
 
   const filteredExpenses = filterExpenses();
 
-  // Calculate totals for filtered expenses
   useEffect(() => {
     const total = filteredExpenses.reduce((sum, expense) => sum + expense.value, 0);
     setTotalExpensesValue(total);
@@ -285,7 +269,6 @@ export default function ExpensesPage() {
   }, [filteredExpenses]);
 
   const handleAddExpenses = () => {
-    // Form validation
     const invalidItems = expenseItems.filter(
       item => !item.description || !item.category || !item.value || !item.date
     );
@@ -299,7 +282,6 @@ export default function ExpensesPage() {
       return;
     }
 
-    // Validate values
     const invalidValues = expenseItems.filter(
       item => isNaN(parseFloat(item.value)) || parseFloat(item.value) <= 0
     );
@@ -313,7 +295,6 @@ export default function ExpensesPage() {
       return;
     }
 
-    // Add new expenses
     let newExpensesArray = [];
 
     expenseItems.forEach((item, index) => {
@@ -331,10 +312,8 @@ export default function ExpensesPage() {
         }
       };
 
-      // Add the first expense/installment
       newExpensesArray.push(baseExpense);
 
-      // If parcelado, add remaining installments
       if (item.paymentType === 'Parcelado' && parseInt(item.installments) > 1) {
         for (let i = 2; i <= parseInt(item.installments); i++) {
           const nextDate = new Date(item.date);
@@ -426,10 +405,7 @@ export default function ExpensesPage() {
   const confirmDeleteExpense = () => {
     if (!expenseToDelete) return;
     
-    // If it's an installment in a series, we need to ask if all installments should be deleted
     if (expenseToDelete.paymentType === 'Parcelado' && expenseToDelete.installments.total > 1) {
-      // For this example, we'll just delete the specific installment
-      // In a real app, you might want to ask the user if they want to delete all installments
       setExpenses(expenses.filter(expense => expense.id !== expenseToDelete.id));
     } else {
       setExpenses(expenses.filter(expense => expense.id !== expenseToDelete.id));
@@ -451,10 +427,6 @@ export default function ExpensesPage() {
   
   const handleUpdateExpense = () => {
     if (!editingExpense) return;
-    
-    // If it's an installment in a series and there's a value change,
-    // we should ask if all future installments should be updated
-    // For this example, we'll just update this specific installment
     
     setExpenses(expenses.map(expense => 
       expense.id === editingExpense.id ? editingExpense : expense
@@ -527,7 +499,6 @@ export default function ExpensesPage() {
         description="Cadastre e visualize suas despesas" 
       />
 
-      {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-2 mb-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -569,7 +540,6 @@ export default function ExpensesPage() {
         </div>
         
         <div className="flex flex-wrap gap-2">
-          {/* Filter by Date */}
           {availableFilters.find(f => f.id === 'date')?.enabled && (
             <Popover open={openDatePopover} onOpenChange={setOpenDatePopover}>
               <PopoverTrigger asChild>
@@ -612,7 +582,6 @@ export default function ExpensesPage() {
             </Popover>
           )}
 
-          {/* Filter by Description */}
           {availableFilters.find(f => f.id === 'description')?.enabled && (
             <Popover open={openDescriptionPopover} onOpenChange={setOpenDescriptionPopover}>
               <PopoverTrigger asChild>
@@ -650,7 +619,6 @@ export default function ExpensesPage() {
             </Popover>
           )}
 
-          {/* Filter by Category */}
           {availableFilters.find(f => f.id === 'category')?.enabled && (
             <Popover open={openCategoryPopover} onOpenChange={setOpenCategoryPopover}>
               <PopoverTrigger asChild>
@@ -696,7 +664,6 @@ export default function ExpensesPage() {
             </Popover>
           )}
 
-          {/* Filter by Status */}
           {availableFilters.find(f => f.id === 'status')?.enabled && (
             <Popover open={openStatusPopover} onOpenChange={setOpenStatusPopover}>
               <PopoverTrigger asChild>
@@ -798,7 +765,7 @@ export default function ExpensesPage() {
             <TableBody>
               {filteredExpenses.length > 0 ? (
                 filteredExpenses.map(expense => (
-                  <TableRow key={expense.id}>
+                  <TableRow key={String(expense.id)}>
                     <TableCell>
                       {new Date(expense.date).toLocaleDateString('pt-BR')}
                     </TableCell>
@@ -886,7 +853,6 @@ export default function ExpensesPage() {
         </CardContent>
       </Card>
 
-      {/* Add Category Dialog */}
       <Dialog open={isCategoryDialogOpen} onOpenChange={setIsCategoryDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -912,7 +878,6 @@ export default function ExpensesPage() {
         </DialogContent>
       </Dialog>
       
-      {/* Edit Expense Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -969,7 +934,7 @@ export default function ExpensesPage() {
               <Select
                 value={editingExpense?.paymentType || "À Vista"}
                 onValueChange={(value) => setEditingExpense({...editingExpense, paymentType: value})}
-                disabled={editingExpense?.installments?.current > 1} // Disable changing payment type for ongoing installments
+                disabled={editingExpense?.installments?.current > 1}
               >
                 <SelectTrigger id="paymentType">
                   <SelectValue placeholder="Selecione a forma de pagamento" />
@@ -1001,7 +966,6 @@ export default function ExpensesPage() {
         </DialogContent>
       </Dialog>
       
-      {/* Delete Confirmation Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -1031,7 +995,6 @@ export default function ExpensesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Add Expense Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-[625px]">
           <DialogHeader>
@@ -1042,7 +1005,7 @@ export default function ExpensesPage() {
           </DialogHeader>
           <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2">
             {expenseItems.map((item, index) => (
-              <Card key={item.id} className="p-4">
+              <Card key={String(item.id)} className="p-4">
                 <div className="flex justify-between items-center mb-4">
                   <CardTitle className="text-lg">Item {index + 1}</CardTitle>
                   {expenseItems.length > 1 && (
