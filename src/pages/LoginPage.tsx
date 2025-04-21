@@ -5,10 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { DollarSign, Lock, Mail, User } from "lucide-react";
+import { DollarSign, Mail, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
+import RegistrationForm from "@/components/auth/RegistrationForm";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -18,11 +19,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
   const [isRegistrationSuccess, setIsRegistrationSuccess] = useState(false);
-  const [registrationData, setRegistrationData] = useState({
-    name: "",
-    email: "",
-    password: "",
-  });
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,7 +30,6 @@ export default function LoginPage() {
         title: "Login realizado com sucesso",
         description: "Bem-vindo ao Sistema FinQ!",
       });
-      // Redirect to the dashboard page after successful login
       navigate("/");
     } else {
       toast({
@@ -49,18 +44,8 @@ export default function LoginPage() {
     setIsRegisterOpen(true);
   };
 
-  const handleSubmitRegistration = (e: React.FormEvent) => {
-    e.preventDefault();
-    // In a real app, this would submit to an API
-    console.log("Registration submitted:", registrationData);
+  const handleRegistrationSuccess = () => {
     setIsRegistrationSuccess(true);
-    
-    // Reset form
-    setRegistrationData({
-      name: "",
-      email: "",
-      password: "",
-    });
   };
 
   const closeRegistrationDialog = () => {
@@ -137,63 +122,7 @@ export default function LoginPage() {
           </DialogHeader>
           
           {!isRegistrationSuccess ? (
-            <form onSubmit={handleSubmitRegistration} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Nome completo</Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="name"
-                    placeholder="Seu nome completo"
-                    className="pl-10"
-                    value={registrationData.name}
-                    onChange={(e) =>
-                      setRegistrationData({ ...registrationData, name: e.target.value })
-                    }
-                    required
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="register-email">E-mail</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="register-email"
-                    type="email"
-                    placeholder="Seu endereço de email"
-                    className="pl-10"
-                    value={registrationData.email}
-                    onChange={(e) =>
-                      setRegistrationData({ ...registrationData, email: e.target.value })
-                    }
-                    required
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="register-password">Senha</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="register-password"
-                    type="password"
-                    placeholder="Crie uma senha segura"
-                    className="pl-10"
-                    value={registrationData.password}
-                    onChange={(e) =>
-                      setRegistrationData({ ...registrationData, password: e.target.value })
-                    }
-                    required
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button type="submit" className="w-full">
-                  Solicitar acesso
-                </Button>
-              </DialogFooter>
-            </form>
+            <RegistrationForm onSuccess={handleRegistrationSuccess} />
           ) : (
             <DialogFooter>
               <Button onClick={closeRegistrationDialog} className="w-full">
