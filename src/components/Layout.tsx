@@ -1,8 +1,16 @@
 
 import { Navbar } from "./Navbar";
 import { Toaster } from "@/components/ui/toaster";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function Layout({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated } = useAuth();
+  
+  // If user is not authenticated, we won't render layout
+  if (!isAuthenticated) {
+    return <>{children}</>;
+  }
+  
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Navbar />
