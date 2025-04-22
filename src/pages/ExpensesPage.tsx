@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import {
   Card,
@@ -59,6 +58,8 @@ import { DateRangePicker } from "@/components/DateRangePicker";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 
 const MOCK_EXPENSE_CATEGORIES = [
   "Aluguel",
@@ -84,12 +85,10 @@ export default function ExpensesPage() {
     useExpenses();
   const { toast } = useToast();
 
-  // Modal control
   const [open, setOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [actionsOpen, setActionsOpen] = useState<number | null>(null);
 
-  // Form states (add/edit)
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [category, setCategory] = useState(MOCK_EXPENSE_CATEGORIES[0]);
   const [description, setDescription] = useState("");
@@ -97,11 +96,9 @@ export default function ExpensesPage() {
   const [status, setStatus] = useState(EXPENSE_STATUS.PENDENTE);
   const [selectedExpense, setSelectedExpense] = useState<any>(null);
 
-  // Novos campos para parcelamento
   const [isParceled, setIsParceled] = useState(false);
   const [installments, setInstallments] = useState<number>(1);
 
-  // Filtros
   const [dateRange, setDateRange] = useState<{
     from: Date;
     to: Date | undefined;
@@ -113,16 +110,13 @@ export default function ExpensesPage() {
   const [descriptionFilter, setDescriptionFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
 
-  // Despesas filtradas
-  const [filteredExpenses, setFilteredExpenses] = useState<any[]>([]);
+  const [multiExpenses, setMultiExpenses] = useState<any[]>([]);
 
-  // Filtrar despesas baseado nos critérios
   useEffect(() => {
     if (!expenses || !Array.isArray(expenses)) return;
 
     let filtered = [...expenses];
 
-    // Filtrar por data
     if (dateRange.from && dateRange.to) {
       filtered = filtered.filter((expense) => {
         const expenseDate = parseISO(expense.date);
@@ -133,19 +127,16 @@ export default function ExpensesPage() {
       });
     }
 
-    // Filtrar por categoria
     if (categoryFilter) {
       filtered = filtered.filter((expense) => expense.category === categoryFilter);
     }
 
-    // Filtrar por descrição
     if (descriptionFilter) {
       filtered = filtered.filter((expense) => 
         expense.description.toLowerCase().includes(descriptionFilter.toLowerCase())
       );
     }
 
-    // Filtrar por status
     if (statusFilter) {
       filtered = filtered.filter((expense) => expense.status === statusFilter);
     }
@@ -153,8 +144,28 @@ export default function ExpensesPage() {
     setFilteredExpenses(filtered);
   }, [expenses, dateRange, categoryFilter, descriptionFilter, statusFilter]);
 
-  // Handle create
   async function handleAddExpense() {
+    if (multiExpenses.length > 0) {
+      try {
+        await addMultipleExpenses(multiExpenses);
+        toast({
+          title: "Sucesso",
+          description: `${multiExpenses.length} despesas adicionadas!`,
+        });
+        setMultiExpenses([]);
+        setOpen(false);
+        resetFormFields();
+        return;
+      } catch (err: any) {
+        toast({
+          title: "Erro",
+          description: err.message || "Falha ao salvar as despesas.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     if (!selectedDate || !category || !description || !value || !status) {
       toast({
         title: "Erro",
@@ -168,7 +179,6 @@ export default function ExpensesPage() {
       const valueNum = parseFloat(value);
 
       if (isParceled && installments > 1) {
-        // Criar múltiplas despesas para parcelamento
         const installmentValue = valueNum / installments;
         const expensesArray = [];
 
@@ -194,14 +204,13 @@ export default function ExpensesPage() {
           description: `${installments} parcelas adicionadas com sucesso.`,
         });
       } else {
-        // Adicionar despesa única
         await addExpense({
           date: selectedDate.toISOString(),
           category,
           description,
           value: valueNum,
           status,
-          paymentType: "À Vista",
+          paymentType: isParceled ? "Parcelado" : "À Vista",
         });
         toast({
           title: "Sucesso",
@@ -220,7 +229,31 @@ export default function ExpensesPage() {
     }
   }
 
-  // Resetar campos do formulário
+  function handleAddMultiItem() {
+    if (!selectedDate || !category || !description || !value || !status) {
+      toast({
+        title: "Erro",
+        description: "Preencha todos os campos.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setMultiExpenses([
+      ...multiExpenses,
+      {
+        date: selectedDate.toISOString(),
+        category,
+        description,
+        value: parseFloat(value),
+        status,
+        paymentType: isParceled ? "Parcelado" : "À Vista",
+        installment: isParceled ? 1 : undefined,
+        totalInstallments: isParceled ? installments : undefined,
+      },
+    ]);
+    resetFormFields();
+  }
+
   function resetFormFields() {
     setSelectedDate(new Date());
     setCategory(MOCK_EXPENSE_CATEGORIES[0]);
@@ -231,7 +264,6 @@ export default function ExpensesPage() {
     setInstallments(1);
   }
 
-  // Prepare editing
   function handleEditExpense(expense: any) {
     setSelectedExpense(expense);
     setSelectedDate(parseISO(expense.date));
@@ -242,7 +274,6 @@ export default function ExpensesPage() {
     setEditOpen(true);
   }
 
-  // Handle update
   async function handleUpdateExpense() {
     if (!selectedExpense) return;
     if (!selectedDate || !category || !description || !value) {
@@ -276,7 +307,6 @@ export default function ExpensesPage() {
     }
   }
 
-  // Excluir
   async function handleDeleteExpense(expense: any) {
     try {
       await deleteExpense(expense.id);
@@ -293,7 +323,6 @@ export default function ExpensesPage() {
     }
   }
 
-  // Toggle status
   async function handleToggleStatus(expense: any, newStatus: string) {
     try {
       await toggleStatus({ id: expense.id, newStatus });
@@ -310,7 +339,6 @@ export default function ExpensesPage() {
     }
   }
 
-  // Renderizar ícone do status
   function renderStatusIcon(status: string) {
     switch (status) {
       case EXPENSE_STATUS.PAGO:
@@ -324,7 +352,6 @@ export default function ExpensesPage() {
     }
   }
 
-  // Processos para gráficos e totais
   const validExpenses = Array.isArray(filteredExpenses) ? filteredExpenses : [];
   const totalExpense = validExpenses.reduce((acc, e) => acc + (e.value || 0), 0);
 
@@ -352,16 +379,49 @@ export default function ExpensesPage() {
     return acc;
   }, 0);
 
-  // Dados de status
   const statusData = validExpenses.reduce((acc: any, expense: any) => {
     if (!acc[expense.status]) acc[expense.status] = 0;
     acc[expense.status] += 1;
     return acc;
   }, {});
 
+  function StatusDropdown({ expense }: { expense: any }) {
+    const [open, setOpen] = useState(false);
+
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            size="sm"
+            variant="outline"
+            className={
+              expense.status === EXPENSE_STATUS.PAGO
+                ? "border-green-600 text-green-600 px-2"
+                : expense.status === EXPENSE_STATUS.PENDENTE
+                ? "border-amber-500 text-amber-500 px-2"
+                : "border-red-600 text-red-600 px-2"
+            }
+          >
+            {expense.status}
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="z-50 bg-white">
+          <DropdownMenuItem onClick={() => handleToggleStatus(expense, EXPENSE_STATUS.PAGO)}>
+            <Check className="w-4 h-4 mr-2 text-green-500" /> Pago
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handleToggleStatus(expense, EXPENSE_STATUS.PENDENTE)}>
+            <Clock className="w-4 h-4 mr-2 text-amber-500" /> Pendente
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handleToggleStatus(expense, EXPENSE_STATUS.CANCELADO)}>
+            <X className="w-4 h-4 mr-2 text-red-500" /> Cancelado
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* TOPO */}
       <div className="flex flex-col gap-4">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 gap-4">
           <div className="flex flex-row gap-4 w-full md:w-auto">
@@ -389,7 +449,6 @@ export default function ExpensesPage() {
           </div>
         </div>
 
-        {/* FILTROS */}
         <Card>
           <CardHeader>
             <CardTitle className="text-md flex items-center gap-2">
@@ -504,59 +563,22 @@ export default function ExpensesPage() {
                     <TableCell>{expense.category}</TableCell>
                     <TableCell>{expense.description}</TableCell>
                     <TableCell>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant={expense.status === EXPENSE_STATUS.PAGO ? "default" : "outline"}
-                          className={
-                            expense.status === EXPENSE_STATUS.PAGO
-                              ? "bg-green-600 text-white px-3"
-                              : "border border-green-600 text-green-600 px-3"
-                          }
-                          onClick={() => handleToggleStatus(expense, EXPENSE_STATUS.PAGO)}
-                        >
-                          <Check className="h-4 w-4 mr-1" /> Pago
-                        </Button>
-                        
-                        <Button
-                          size="sm"
-                          variant={expense.status === EXPENSE_STATUS.PENDENTE ? "default" : "outline"}
-                          className={
-                            expense.status === EXPENSE_STATUS.PENDENTE
-                              ? "bg-amber-500 text-white px-3"
-                              : "border border-amber-500 text-amber-500 px-3"
-                          }
-                          onClick={() => handleToggleStatus(expense, EXPENSE_STATUS.PENDENTE)}
-                        >
-                          <Clock className="h-4 w-4 mr-1" /> Pendente
-                        </Button>
-                        
-                        <Button
-                          size="sm"
-                          variant={expense.status === EXPENSE_STATUS.CANCELADO ? "default" : "outline"}
-                          className={
-                            expense.status === EXPENSE_STATUS.CANCELADO
-                              ? "bg-red-600 text-white px-3"
-                              : "border border-red-600 text-red-600 px-3"
-                          }
-                          onClick={() => handleToggleStatus(expense, EXPENSE_STATUS.CANCELADO)}
-                        >
-                          <X className="h-4 w-4 mr-1" /> Cancelado
-                        </Button>
-                      </div>
+                      <StatusDropdown expense={expense} />
                     </TableCell>
                     <TableCell>
-                      {expense.paymentType === "Parcelado" ? (
-                        <div>
-                          {expense.paymentType}
-                          <div className="text-xs text-muted-foreground">
-                            {expense.installment}/{expense.totalInstallments} parcelas
-                            {expense.status === EXPENSE_STATUS.PAGO ? " pagas" : ""}
-                            {expense.status === EXPENSE_STATUS.PENDENTE ? ` (${expense.totalInstallments - expense.installment + 1} restantes)` : ""}
-                          </div>
-                        </div>
+                      {expense.paymentType === "Parcelado" && expense.installment && expense.totalInstallments ? (
+                        <span>
+                          {expense.installment}/{expense.totalInstallments} parcela{expense.totalInstallments > 1 ? "s" : ""}
+                          {expense.status === EXPENSE_STATUS.PAGO
+                            ? " paga"
+                            : expense.status === EXPENSE_STATUS.PENDENTE
+                            ? ` (${expense.totalInstallments - expense.installment + 1} restantes)`
+                            : ""}
+                        </span>
                       ) : (
-                        expense.paymentType || "À Vista"
+                        <span>
+                          {expense.paymentType === "À Vista" ? "À Vista" : expense.paymentType}
+                        </span>
                       )}
                     </TableCell>
                     <TableCell className="text-right">
@@ -612,7 +634,6 @@ export default function ExpensesPage() {
         </CardContent>
       </Card>
 
-      {/* Gráficos e cards estatísticos */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
@@ -746,196 +767,179 @@ export default function ExpensesPage() {
         </Card>
       </div>
 
-      {/* Modal adicionar */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Adicionar Despesa</DialogTitle>
             <DialogDescription>
-              Adicione uma nova despesa ao sistema.
+              Adicione uma ou mais despesas ao sistema.
             </DialogDescription>
           </DialogHeader>
-          <Tabs defaultValue="basic">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="basic">Informações Básicas</TabsTrigger>
-              <TabsTrigger value="payment">Forma de Pagamento</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="basic" className="space-y-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="date" className="text-right">
-                  Data
-                </Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant={"outline"}
-                      className={cn(
-                        "w-[240px] pl-3 text-left font-normal",
-                        !selectedDate && "text-muted-foreground"
-                      )}
-                    >
-                      {selectedDate ? (
-                        format(selectedDate, "PP", { locale: ptBR })
-                      ) : (
-                        <span>Selecione a data</span>
-                      )}
-                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      locale={ptBR}
-                      selected={selectedDate}
-                      onSelect={setSelectedDate}
-                      initialFocus
-                      className={cn("p-3 pointer-events-auto")}
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="category" className="text-right">
-                  Categoria
-                </Label>
-                <Select
-                  value={category}
-                  onValueChange={setCategory}
-                >
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Selecione uma categoria" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {MOCK_EXPENSE_CATEGORIES.map((cat) => (
-                      <SelectItem key={cat} value={cat}>
-                        {cat}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="description" className="text-right">
-                  Descrição
-                </Label>
-                <Input
-                  id="description"
-                  className="col-span-3"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="value" className="text-right">
-                  Valor
-                </Label>
-                <Input
-                  id="value"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  className="col-span-3"
-                  value={value}
-                  onChange={(e) => setValue(e.target.value)}
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="status" className="text-right">
-                  Status
-                </Label>
-                <Select
-                  value={status}
-                  onValueChange={setStatus}
-                >
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Selecione um status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={EXPENSE_STATUS.PAGO}>
-                      <div className="flex items-center">
-                        <Check className="h-4 w-4 text-green-500 mr-2" /> Pago
-                      </div>
-                    </SelectItem>
-                    <SelectItem value={EXPENSE_STATUS.PENDENTE}>
-                      <div className="flex items-center">
-                        <Clock className="h-4 w-4 text-amber-500 mr-2" /> Pendente
-                      </div>
-                    </SelectItem>
-                    <SelectItem value={EXPENSE_STATUS.CANCELADO}>
-                      <div className="flex items-center">
-                        <X className="h-4 w-4 text-red-500 mr-2" /> Cancelado
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="payment" className="space-y-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="paymentType" className="text-right">
-                  Forma de Pagamento
-                </Label>
-                <div className="col-span-3 flex items-center gap-4">
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="parcelamento"
-                      checked={!isParceled}
-                      onCheckedChange={() => setIsParceled(!isParceled)}
-                      className="data-[state=checked]:bg-green-500"
-                    />
-                    <Label htmlFor="parcelamento">À Vista</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="parcelado"
-                      checked={isParceled}
-                      onCheckedChange={() => setIsParceled(!isParceled)}
-                      className="data-[state=checked]:bg-blue-500"
-                    />
-                    <Label htmlFor="parcelado">Parcelado</Label>
-                  </div>
-                </div>
-              </div>
-              {isParceled && (
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="installments" className="text-right">
-                    Número de Parcelas
-                  </Label>
-                  <Input
-                    id="installments"
-                    type="number"
-                    min="2"
-                    max="36"
-                    className="col-span-3"
-                    value={installments}
-                    onChange={(e) => setInstallments(parseInt(e.target.value) || 2)}
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="date" className="text-right">
+                Data
+              </Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "w-[180px] pl-3 text-left font-normal",
+                      !selectedDate && "text-muted-foreground"
+                    )}
+                  >
+                    {selectedDate ? (
+                      format(selectedDate, "PP", { locale: ptBR })
+                    ) : (
+                      <span>Selecione a data</span>
+                    )}
+                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    locale={ptBR}
+                    selected={selectedDate}
+                    onSelect={setSelectedDate}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
                   />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="category" className="text-right">
+                Categoria
+              </Label>
+              <Select
+                value={category}
+                onValueChange={setCategory}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Selecione uma categoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  {MOCK_EXPENSE_CATEGORIES.map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="description" className="text-right">
+                Descrição
+              </Label>
+              <Input
+                id="description"
+                className="col-span-3"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="value" className="text-right">
+                Valor
+              </Label>
+              <Input
+                id="value"
+                type="number"
+                step="0.01"
+                min="0"
+                className="col-span-3"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">Forma de Pagamento</Label>
+              <RadioGroup
+                className="col-span-2 flex flex-row gap-4"
+                value={isParceled ? "parcelado" : "avista"}
+                onValueChange={(v) => setIsParceled(v === "parcelado")}
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="avista" id="avista" />
+                  <Label htmlFor="avista">À Vista</Label>
                 </div>
-              )}
-              {isParceled && installments > 1 && value && (
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <div className="text-right text-sm text-muted-foreground">
-                    Valor por parcela:
-                  </div>
-                  <div className="col-span-3">
-                    <strong>R$ {(parseFloat(value) / installments).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
-                  </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="parcelado" id="parcelado" />
+                  <Label htmlFor="parcelado">Parcelado</Label>
                 </div>
-              )}
-            </TabsContent>
-          </Tabs>
+              </RadioGroup>
+              <Label htmlFor="status" className="text-right">
+                Status
+              </Label>
+              <Select
+                value={status}
+                onValueChange={setStatus}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={EXPENSE_STATUS.PAGO}>Pago</SelectItem>
+                  <SelectItem value={EXPENSE_STATUS.PENDENTE}>Pendente</SelectItem>
+                  <SelectItem value={EXPENSE_STATUS.CANCELADO}>Cancelado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {isParceled && (
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="installments" className="text-right">
+                  Nº Parcelas
+                </Label>
+                <Input
+                  id="installments"
+                  type="number"
+                  min="2"
+                  max="36"
+                  className="col-span-3"
+                  value={installments}
+                  onChange={(e) => setInstallments(parseInt(e.target.value) || 2)}
+                />
+              </div>
+            )}
+            {isParceled && installments > 1 && value && (
+              <div className="grid grid-cols-4 items-center gap-4">
+                <div className="text-right text-sm text-muted-foreground">
+                  Valor por parcela:
+                </div>
+                <div className="col-span-3">
+                  <strong>R$ {(parseFloat(value) / installments).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
+                </div>
+              </div>
+            )}
+            <div className="flex justify-between items-center">
+              <Button type="button" variant="outline" onClick={handleAddMultiItem}>Adicionar ao lote</Button>
+              <div className="text-sm text-muted-foreground">
+                {multiExpenses.length > 0 && (
+                  <span>{multiExpenses.length} despesa(s) no lote</span>
+                )}
+              </div>
+            </div>
+            {multiExpenses.length > 0 &&
+              <div className="border rounded text-xs p-2 max-h-20 overflow-auto bg-muted mb-2">
+                {multiExpenses.map((e, i) => (
+                  <div key={i}>
+                    {format(parseISO(e.date), "dd/MM/yyyy")} - {e.category} - {e.description} - R$ {e.value.toLocaleString('pt-BR')} ({e.paymentType})
+                  </div>
+                ))}
+              </div>
+            }
+          </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setOpen(false); resetFormFields(); }}>
+            <Button variant="outline" onClick={() => { setOpen(false); resetFormFields(); setMultiExpenses([]); }}>
               Cancelar
             </Button>
-            <Button onClick={handleAddExpense}>Adicionar</Button>
+            <Button onClick={handleAddExpense}>{multiExpenses.length > 0 ? "Salvar lote" : "Adicionar"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Modal editar */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent>
           <DialogHeader>
