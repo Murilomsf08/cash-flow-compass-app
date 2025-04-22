@@ -92,4 +92,3 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
     </form>
   );
 }
-
