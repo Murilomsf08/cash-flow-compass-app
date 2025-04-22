@@ -19,7 +19,10 @@ export type ExpenseDB = {
   category: string;
   description: string;
   value: number;
-  status: string; // "Ativa" ou "Inativa"
+  status: string; // "Pago" | "Pendente" | "Cancelado"
+  paymentType?: string; // "À Vista" | "Parcelado"
+  installment?: number; // Número da parcela atual
+  totalInstallments?: number; // Número total de parcelas
 };
 
 // Mock data para teste quando o Supabase não está disponível
@@ -30,7 +33,8 @@ const mockExpenses: ExpenseDB[] = [
     category: 'Alimentação',
     description: 'Almoço de negócios',
     value: 120.50,
-    status: 'Ativa'
+    status: 'Pago',
+    paymentType: 'À Vista'
   },
   {
     id: 2,
@@ -38,7 +42,30 @@ const mockExpenses: ExpenseDB[] = [
     category: 'Transporte',
     description: 'Gasolina',
     value: 200.00,
-    status: 'Ativa'
+    status: 'Pendente',
+    paymentType: 'À Vista'
+  },
+  {
+    id: 3,
+    date: '2023-05-10',
+    category: 'Equipamentos',
+    description: 'Computador novo',
+    value: 1000.00,
+    status: 'Pago',
+    paymentType: 'Parcelado',
+    installment: 1,
+    totalInstallments: 5
+  },
+  {
+    id: 4,
+    date: '2023-06-10',
+    category: 'Equipamentos',
+    description: 'Computador novo',
+    value: 1000.00,
+    status: 'Pendente',
+    paymentType: 'Parcelado',
+    installment: 2,
+    totalInstallments: 5
   }
 ];
 
@@ -66,13 +93,12 @@ export async function getExpenses() {
   }
 }
 
-export async function addExpense(expense: Omit<ExpenseDB, 'id' | 'status'>) {
+export async function addExpense(expense: Omit<ExpenseDB, 'id'>) {
   if (!isSupabaseConnected) {
     console.warn('Usando dados simulados. Conecte-se ao Supabase para dados reais.');
     const newExpense: ExpenseDB = {
       id: mockExpenses.length + 1,
       ...expense,
-      status: "Ativa"
     };
     mockExpenses.push(newExpense);
     return newExpense;
@@ -81,7 +107,7 @@ export async function addExpense(expense: Omit<ExpenseDB, 'id' | 'status'>) {
   try {
     const { data, error } = await supabase
       .from('expenses')
-      .insert([{ ...expense, status: "Ativa" }])
+      .insert([expense])
       .select()
       .single();
     
@@ -89,6 +115,34 @@ export async function addExpense(expense: Omit<ExpenseDB, 'id' | 'status'>) {
     return data as ExpenseDB;
   } catch (error) {
     console.error('Erro ao adicionar despesa:', error);
+    throw error;
+  }
+}
+
+export async function addMultipleExpenses(expenses: Omit<ExpenseDB, 'id'>[]) {
+  if (!isSupabaseConnected) {
+    console.warn('Usando dados simulados. Conecte-se ao Supabase para dados reais.');
+    const newExpenses = expenses.map((expense, index) => {
+      const newExpense: ExpenseDB = {
+        id: mockExpenses.length + 1 + index,
+        ...expense,
+      };
+      mockExpenses.push(newExpense);
+      return newExpense;
+    });
+    return newExpenses;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('expenses')
+      .insert(expenses)
+      .select();
+    
+    if (error) throw error;
+    return data as ExpenseDB[];
+  } catch (error) {
+    console.error('Erro ao adicionar múltiplas despesas:', error);
     throw error;
   }
 }
@@ -145,13 +199,12 @@ export async function deleteExpense(id: number) {
 
 export async function toggleExpenseStatus(
   id: number,
-  currentStatus: string
+  newStatus: string
 ) {
   if (!isSupabaseConnected) {
     console.warn('Usando dados simulados. Conecte-se ao Supabase para dados reais.');
     const index = mockExpenses.findIndex(e => e.id === id);
     if (index >= 0) {
-      const newStatus = currentStatus === "Ativa" ? "Inativa" : "Ativa";
       mockExpenses[index].status = newStatus;
       return mockExpenses[index];
     }
@@ -159,7 +212,6 @@ export async function toggleExpenseStatus(
   }
 
   try {
-    const newStatus = currentStatus === "Ativa" ? "Inativa" : "Ativa";
     const { data, error } = await supabase
       .from('expenses')
       .update({ status: newStatus })

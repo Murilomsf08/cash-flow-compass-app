@@ -1,11 +1,12 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from "@/components/ui/card";
 import {
   Table,
@@ -25,9 +26,9 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, isWithinInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarIcon, Plus, Edit, Trash2 } from "lucide-react";
+import { CalendarIcon, Plus, Edit, Trash2, Check, Clock, X, Filter } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -50,21 +51,36 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
+  Tooltip as RechartsTooltip,
   ResponsiveContainer,
 } from "recharts";
 import { useExpenses } from "@/hooks/useExpenses";
+import { DateRangePicker } from "@/components/DateRangePicker";
+import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const MOCK_EXPENSE_CATEGORIES = [
   "Aluguel",
   "Salários",
   "Marketing",
   "Contas",
+  "Impostos",
+  "Equipamentos",
+  "Manutenção",
+  "Alimentação",
+  "Transporte",
   "Outros",
 ];
 
+const EXPENSE_STATUS = {
+  PAGO: "Pago",
+  PENDENTE: "Pendente",
+  CANCELADO: "Cancelado",
+};
+
 export default function ExpensesPage() {
-  const { expenses, isLoading, error, addExpense, updateExpense, deleteExpense, toggleStatus } =
+  const { expenses, isLoading, error, addExpense, addMultipleExpenses, updateExpense, deleteExpense, toggleStatus } =
     useExpenses();
   const { toast } = useToast();
 
@@ -78,11 +94,68 @@ export default function ExpensesPage() {
   const [category, setCategory] = useState(MOCK_EXPENSE_CATEGORIES[0]);
   const [description, setDescription] = useState("");
   const [value, setValue] = useState("");
+  const [status, setStatus] = useState(EXPENSE_STATUS.PENDENTE);
   const [selectedExpense, setSelectedExpense] = useState<any>(null);
+
+  // Novos campos para parcelamento
+  const [isParceled, setIsParceled] = useState(false);
+  const [installments, setInstallments] = useState<number>(1);
+
+  // Filtros
+  const [dateRange, setDateRange] = useState<{
+    from: Date;
+    to: Date | undefined;
+  }>({
+    from: new Date(new Date().setMonth(new Date().getMonth() - 1)),
+    to: new Date(),
+  });
+  const [categoryFilter, setCategoryFilter] = useState<string | undefined>(undefined);
+  const [descriptionFilter, setDescriptionFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
+
+  // Despesas filtradas
+  const [filteredExpenses, setFilteredExpenses] = useState<any[]>([]);
+
+  // Filtrar despesas baseado nos critérios
+  useEffect(() => {
+    if (!expenses || !Array.isArray(expenses)) return;
+
+    let filtered = [...expenses];
+
+    // Filtrar por data
+    if (dateRange.from && dateRange.to) {
+      filtered = filtered.filter((expense) => {
+        const expenseDate = parseISO(expense.date);
+        return isWithinInterval(expenseDate, {
+          start: dateRange.from,
+          end: dateRange.to,
+        });
+      });
+    }
+
+    // Filtrar por categoria
+    if (categoryFilter) {
+      filtered = filtered.filter((expense) => expense.category === categoryFilter);
+    }
+
+    // Filtrar por descrição
+    if (descriptionFilter) {
+      filtered = filtered.filter((expense) => 
+        expense.description.toLowerCase().includes(descriptionFilter.toLowerCase())
+      );
+    }
+
+    // Filtrar por status
+    if (statusFilter) {
+      filtered = filtered.filter((expense) => expense.status === statusFilter);
+    }
+
+    setFilteredExpenses(filtered);
+  }, [expenses, dateRange, categoryFilter, descriptionFilter, statusFilter]);
 
   // Handle create
   async function handleAddExpense() {
-    if (!selectedDate || !category || !description || !value) {
+    if (!selectedDate || !category || !description || !value || !status) {
       toast({
         title: "Erro",
         description: "Preencha todos os campos.",
@@ -90,22 +163,54 @@ export default function ExpensesPage() {
       });
       return;
     }
+
     try {
-      await addExpense({
-        date: selectedDate.toISOString(),
-        category,
-        description,
-        value: parseFloat(value),
-      });
-      toast({
-        title: "Sucesso",
-        description: "Despesa adicionada com sucesso.",
-      });
+      const valueNum = parseFloat(value);
+
+      if (isParceled && installments > 1) {
+        // Criar múltiplas despesas para parcelamento
+        const installmentValue = valueNum / installments;
+        const expensesArray = [];
+
+        for (let i = 0; i < installments; i++) {
+          const installmentDate = new Date(selectedDate);
+          installmentDate.setMonth(installmentDate.getMonth() + i);
+
+          expensesArray.push({
+            date: installmentDate.toISOString(),
+            category,
+            description: `${description} (${i + 1}/${installments})`,
+            value: installmentValue,
+            status: i === 0 ? status : EXPENSE_STATUS.PENDENTE,
+            paymentType: "Parcelado",
+            installment: i + 1,
+            totalInstallments: installments,
+          });
+        }
+
+        await addMultipleExpenses(expensesArray);
+        toast({
+          title: "Sucesso",
+          description: `${installments} parcelas adicionadas com sucesso.`,
+        });
+      } else {
+        // Adicionar despesa única
+        await addExpense({
+          date: selectedDate.toISOString(),
+          category,
+          description,
+          value: valueNum,
+          status,
+          paymentType: "À Vista",
+        });
+        toast({
+          title: "Sucesso",
+          description: "Despesa adicionada com sucesso.",
+        });
+      }
+
       setOpen(false);
-      setSelectedDate(new Date());
-      setCategory(MOCK_EXPENSE_CATEGORIES[0]);
-      setDescription("");
-      setValue("");
+      resetFormFields();
     } catch (err: any) {
       toast({
         title: "Erro",
@@ -115,6 +220,17 @@ export default function ExpensesPage() {
     }
   }
 
+  // Resetar campos do formulário
+  function resetFormFields() {
+    setSelectedDate(new Date());
+    setCategory(MOCK_EXPENSE_CATEGORIES[0]);
+    setDescription("");
+    setValue("");
+    setStatus(EXPENSE_STATUS.PENDENTE);
+    setIsParceled(false);
+    setInstallments(1);
+  }
+
   // Prepare editing
   function handleEditExpense(expense: any) {
     setSelectedExpense(expense);
@@ -122,6 +238,7 @@ export default function ExpensesPage() {
     setCategory(expense.category);
     setDescription(expense.description);
     setValue(expense.value.toString());
+    setStatus(expense.status);
     setEditOpen(true);
   }
 
@@ -143,6 +260,7 @@ export default function ExpensesPage() {
         category,
         description,
         value: parseFloat(value),
+        status,
       });
       toast({
         title: "Sucesso",
@@ -176,9 +294,13 @@ export default function ExpensesPage() {
   }
 
   // Toggle status
-  async function handleToggleStatus(expense: any) {
+  async function handleToggleStatus(expense: any, newStatus: string) {
     try {
-      await toggleStatus({ id: expense.id, currentStatus: expense.status });
+      await toggleStatus({ id: expense.id, newStatus });
+      toast({
+        title: "Sucesso",
+        description: `Status alterado para ${newStatus}.`,
+      });
     } catch {
       toast({
         title: "Erro",
@@ -188,10 +310,22 @@ export default function ExpensesPage() {
     }
   }
 
+  // Renderizar ícone do status
+  function renderStatusIcon(status: string) {
+    switch (status) {
+      case EXPENSE_STATUS.PAGO:
+        return <Check className="h-4 w-4 text-green-500" />;
+      case EXPENSE_STATUS.PENDENTE:
+        return <Clock className="h-4 w-4 text-amber-500" />;
+      case EXPENSE_STATUS.CANCELADO:
+        return <X className="h-4 w-4 text-red-500" />;
+      default:
+        return null;
+    }
+  }
+
   // Processos para gráficos e totais
-  const validExpenses = Array.isArray(expenses)
-    ? expenses
-    : [];
+  const validExpenses = Array.isArray(filteredExpenses) ? filteredExpenses : [];
   const totalExpense = validExpenses.reduce((acc, e) => acc + (e.value || 0), 0);
 
   const expensesByCategory = validExpenses.reduce((acc: any, expense: any) => {
@@ -218,33 +352,124 @@ export default function ExpensesPage() {
     return acc;
   }, 0);
 
+  // Dados de status
+  const statusData = validExpenses.reduce((acc: any, expense: any) => {
+    if (!acc[expense.status]) acc[expense.status] = 0;
+    acc[expense.status] += 1;
+    return acc;
+  }, {});
+
   return (
     <div className="space-y-6">
       {/* TOPO */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 gap-4">
-        <div className="flex flex-row gap-4 w-full md:w-auto">
-          <Card className="flex-1 min-w-[180px]">
-            <CardContent className="pt-4 pb-4 flex flex-col items-center">
-              <div className="text-muted-foreground text-xs">Total de Despesas</div>
-              <div className="text-2xl font-bold text-[#005f60]">R$ {totalExpense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-            </CardContent>
-          </Card>
-          <Card className="flex-1 min-w-[180px]">
-            <CardContent className="pt-4 pb-4 flex flex-col items-center">
-              <div className="text-muted-foreground text-xs">Qtd. de Despesas</div>
-              <div className="text-2xl font-bold text-[#faab36]">{validExpenses.length}</div>
-            </CardContent>
-          </Card>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 gap-4">
+          <div className="flex flex-row gap-4 w-full md:w-auto">
+            <Card className="flex-1 min-w-[180px]">
+              <CardContent className="pt-4 pb-4 flex flex-col items-center">
+                <div className="text-muted-foreground text-xs">Total de Despesas</div>
+                <div className="text-2xl font-bold text-[#005f60]">R$ {totalExpense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+              </CardContent>
+            </Card>
+            <Card className="flex-1 min-w-[180px]">
+              <CardContent className="pt-4 pb-4 flex flex-col items-center">
+                <div className="text-muted-foreground text-xs">Qtd. de Despesas</div>
+                <div className="text-2xl font-bold text-[#faab36]">{validExpenses.length}</div>
+              </CardContent>
+            </Card>
+          </div>
+          <div className="flex justify-end w-full md:w-auto">
+            <Button
+              className="bg-[#005f60] text-white hover:bg-[#008083]"
+              onClick={() => setOpen(true)}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Nova Despesa
+            </Button>
+          </div>
         </div>
-        <div className="flex justify-end w-full md:w-auto">
-          <Button
-            className="bg-[#005f60] text-white hover:bg-[#008083]"
-            onClick={() => setOpen(true)}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Nova Despesa
-          </Button>
-        </div>
+
+        {/* FILTROS */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-md flex items-center gap-2">
+              <Filter className="h-4 w-4" /> Filtros
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <Label>Período</Label>
+                <DateRangePicker
+                  dateRange={dateRange}
+                  onDateRangeChange={setDateRange}
+                  className="w-full mt-1"
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="categoryFilter">Categoria</Label>
+                <Select
+                  value={categoryFilter}
+                  onValueChange={setCategoryFilter}
+                >
+                  <SelectTrigger className="w-full mt-1">
+                    <SelectValue placeholder="Todas as categorias" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={undefined}>Todas as categorias</SelectItem>
+                    {MOCK_EXPENSE_CATEGORIES.map((cat) => (
+                      <SelectItem key={cat} value={cat}>
+                        {cat}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label htmlFor="descriptionFilter">Descrição</Label>
+                <Input
+                  id="descriptionFilter"
+                  placeholder="Buscar descrição..."
+                  className="mt-1"
+                  value={descriptionFilter}
+                  onChange={(e) => setDescriptionFilter(e.target.value)}
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="statusFilter">Status</Label>
+                <Select
+                  value={statusFilter}
+                  onValueChange={setStatusFilter}
+                >
+                  <SelectTrigger className="w-full mt-1">
+                    <SelectValue placeholder="Todos os status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={undefined}>Todos os status</SelectItem>
+                    <SelectItem value={EXPENSE_STATUS.PAGO}>
+                      <div className="flex items-center">
+                        <Check className="h-4 w-4 text-green-500 mr-2" /> Pago
+                      </div>
+                    </SelectItem>
+                    <SelectItem value={EXPENSE_STATUS.PENDENTE}>
+                      <div className="flex items-center">
+                        <Clock className="h-4 w-4 text-amber-500 mr-2" /> Pendente
+                      </div>
+                    </SelectItem>
+                    <SelectItem value={EXPENSE_STATUS.CANCELADO}>
+                      <div className="flex items-center">
+                        <X className="h-4 w-4 text-red-500 mr-2" /> Cancelado
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>
@@ -267,6 +492,7 @@ export default function ExpensesPage() {
                   <TableHead>Categoria</TableHead>
                   <TableHead>Descrição</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Pagamento</TableHead>
                   <TableHead className="text-right">Valor</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
@@ -278,18 +504,60 @@ export default function ExpensesPage() {
                     <TableCell>{expense.category}</TableCell>
                     <TableCell>{expense.description}</TableCell>
                     <TableCell>
-                      <Button
-                        size="sm"
-                        variant={expense.status === "Ativa" ? "secondary" : "outline"}
-                        className={
-                          expense.status === "Ativa"
-                            ? "bg-[#057a55] text-white px-3"
-                            : "border border-[#fc4141] text-[#fc4141] px-3"
-                        }
-                        onClick={() => handleToggleStatus(expense)}
-                      >
-                        {expense.status}
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant={expense.status === EXPENSE_STATUS.PAGO ? "default" : "outline"}
+                          className={
+                            expense.status === EXPENSE_STATUS.PAGO
+                              ? "bg-green-600 text-white px-3"
+                              : "border border-green-600 text-green-600 px-3"
+                          }
+                          onClick={() => handleToggleStatus(expense, EXPENSE_STATUS.PAGO)}
+                        >
+                          <Check className="h-4 w-4 mr-1" /> Pago
+                        </Button>
+                        
+                        <Button
+                          size="sm"
+                          variant={expense.status === EXPENSE_STATUS.PENDENTE ? "default" : "outline"}
+                          className={
+                            expense.status === EXPENSE_STATUS.PENDENTE
+                              ? "bg-amber-500 text-white px-3"
+                              : "border border-amber-500 text-amber-500 px-3"
+                          }
+                          onClick={() => handleToggleStatus(expense, EXPENSE_STATUS.PENDENTE)}
+                        >
+                          <Clock className="h-4 w-4 mr-1" /> Pendente
+                        </Button>
+                        
+                        <Button
+                          size="sm"
+                          variant={expense.status === EXPENSE_STATUS.CANCELADO ? "default" : "outline"}
+                          className={
+                            expense.status === EXPENSE_STATUS.CANCELADO
+                              ? "bg-red-600 text-white px-3"
+                              : "border border-red-600 text-red-600 px-3"
+                          }
+                          onClick={() => handleToggleStatus(expense, EXPENSE_STATUS.CANCELADO)}
+                        >
+                          <X className="h-4 w-4 mr-1" /> Cancelado
+                        </Button>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {expense.paymentType === "Parcelado" ? (
+                        <div>
+                          {expense.paymentType}
+                          <div className="text-xs text-muted-foreground">
+                            {expense.installment}/{expense.totalInstallments} parcelas
+                            {expense.status === EXPENSE_STATUS.PAGO ? " pagas" : ""}
+                            {expense.status === EXPENSE_STATUS.PENDENTE ? ` (${expense.totalInstallments - expense.installment + 1} restantes)` : ""}
+                          </div>
+                        </div>
+                      ) : (
+                        expense.paymentType || "À Vista"
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       <span className={expense.value < 0 ? "text-red-600" : ""}>
@@ -367,7 +635,7 @@ export default function ExpensesPage() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
                 <YAxis />
-                <Tooltip />
+                <RechartsTooltip />
                 <Area type="monotone" dataKey="value" stroke="#8884d8" fill="#8884d8" />
               </AreaChart>
             </ResponsiveContainer>
@@ -399,111 +667,267 @@ export default function ExpensesPage() {
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Despesas do Mês</CardTitle>
-          <CardDescription>
-            Total de despesas no mês de {currentMonth}.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-2xl font-bold">
-            R$ {totalForMonth.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-          </p>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Despesas do Mês</CardTitle>
+            <CardDescription>
+              Total de despesas no mês de {currentMonth}.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">
+              R$ {totalForMonth.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Status das Despesas</CardTitle>
+            <CardDescription>
+              Distribuição das despesas por status.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center">
+                  <Check className="h-4 w-4 text-green-500 mr-2" />
+                  <span>Pagas</span>
+                </div>
+                <span className="font-medium">{statusData[EXPENSE_STATUS.PAGO] || 0}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <div className="flex items-center">
+                  <Clock className="h-4 w-4 text-amber-500 mr-2" />
+                  <span>Pendentes</span>
+                </div>
+                <span className="font-medium">{statusData[EXPENSE_STATUS.PENDENTE] || 0}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <div className="flex items-center">
+                  <X className="h-4 w-4 text-red-500 mr-2" />
+                  <span>Canceladas</span>
+                </div>
+                <span className="font-medium">{statusData[EXPENSE_STATUS.CANCELADO] || 0}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Parcelamentos</CardTitle>
+            <CardDescription>
+              Despesas parceladas.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {validExpenses.filter(e => e.paymentType === "Parcelado").length > 0 ? (
+              <div className="space-y-2">
+                {validExpenses
+                  .filter(e => e.paymentType === "Parcelado" && e.installment === 1)
+                  .map(expense => (
+                    <div key={expense.id} className="border rounded p-2">
+                      <div className="font-medium">{expense.description.split(" (")[0]}</div>
+                      <div className="flex justify-between text-sm text-muted-foreground">
+                        <span>Total: R$ {(expense.value * expense.totalInstallments).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        <span>{expense.totalInstallments}x de R$ {expense.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    </div>
+                  ))
+                }
+              </div>
+            ) : (
+              <p className="text-muted-foreground">Nenhuma despesa parcelada registrada.</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Modal adicionar */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Adicionar Despesa</DialogTitle>
             <DialogDescription>
               Adicione uma nova despesa ao sistema.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="date" className="text-right">
-                Data
-              </Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant={"outline"}
-                    className={cn(
-                      "w-[240px] pl-3 text-left font-normal",
-                      !selectedDate && "text-muted-foreground"
-                    )}
-                  >
-                    {selectedDate ? (
-                      format(selectedDate, "PP", { locale: ptBR })
-                    ) : (
-                      <span>Selecione a data</span>
-                    )}
-                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    locale={ptBR}
-                    selected={selectedDate}
-                    onSelect={setSelectedDate}
-                    disabled={(date) =>
-                      date > new Date() || date < new Date("2020-01-01")
-                    }
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="category" className="text-right">
-                Categoria
-              </Label>
-              <Select
-                value={category}
-                onValueChange={setCategory}
-              >
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Selecione uma categoria" />
-                </SelectTrigger>
-                <SelectContent>
-                  {MOCK_EXPENSE_CATEGORIES.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {cat}
+          <Tabs defaultValue="basic">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="basic">Informações Básicas</TabsTrigger>
+              <TabsTrigger value="payment">Forma de Pagamento</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="basic" className="space-y-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="date" className="text-right">
+                  Data
+                </Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={"outline"}
+                      className={cn(
+                        "w-[240px] pl-3 text-left font-normal",
+                        !selectedDate && "text-muted-foreground"
+                      )}
+                    >
+                      {selectedDate ? (
+                        format(selectedDate, "PP", { locale: ptBR })
+                      ) : (
+                        <span>Selecione a data</span>
+                      )}
+                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      locale={ptBR}
+                      selected={selectedDate}
+                      onSelect={setSelectedDate}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="category" className="text-right">
+                  Categoria
+                </Label>
+                <Select
+                  value={category}
+                  onValueChange={setCategory}
+                >
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder="Selecione uma categoria" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MOCK_EXPENSE_CATEGORIES.map((cat) => (
+                      <SelectItem key={cat} value={cat}>
+                        {cat}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="description" className="text-right">
+                  Descrição
+                </Label>
+                <Input
+                  id="description"
+                  className="col-span-3"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="value" className="text-right">
+                  Valor
+                </Label>
+                <Input
+                  id="value"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className="col-span-3"
+                  value={value}
+                  onChange={(e) => setValue(e.target.value)}
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="status" className="text-right">
+                  Status
+                </Label>
+                <Select
+                  value={status}
+                  onValueChange={setStatus}
+                >
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder="Selecione um status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={EXPENSE_STATUS.PAGO}>
+                      <div className="flex items-center">
+                        <Check className="h-4 w-4 text-green-500 mr-2" /> Pago
+                      </div>
                     </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="description" className="text-right">
-                Descrição
-              </Label>
-              <Input
-                id="description"
-                className="col-span-3"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="value" className="text-right">
-                Valor
-              </Label>
-              <Input
-                id="value"
-                type="number"
-                className="col-span-3"
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
-              />
-            </div>
-          </div>
+                    <SelectItem value={EXPENSE_STATUS.PENDENTE}>
+                      <div className="flex items-center">
+                        <Clock className="h-4 w-4 text-amber-500 mr-2" /> Pendente
+                      </div>
+                    </SelectItem>
+                    <SelectItem value={EXPENSE_STATUS.CANCELADO}>
+                      <div className="flex items-center">
+                        <X className="h-4 w-4 text-red-500 mr-2" /> Cancelado
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="payment" className="space-y-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="paymentType" className="text-right">
+                  Forma de Pagamento
+                </Label>
+                <div className="col-span-3 flex items-center gap-4">
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="parcelamento"
+                      checked={!isParceled}
+                      onCheckedChange={() => setIsParceled(!isParceled)}
+                      className="data-[state=checked]:bg-green-500"
+                    />
+                    <Label htmlFor="parcelamento">À Vista</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="parcelado"
+                      checked={isParceled}
+                      onCheckedChange={() => setIsParceled(!isParceled)}
+                      className="data-[state=checked]:bg-blue-500"
+                    />
+                    <Label htmlFor="parcelado">Parcelado</Label>
+                  </div>
+                </div>
+              </div>
+              {isParceled && (
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="installments" className="text-right">
+                    Número de Parcelas
+                  </Label>
+                  <Input
+                    id="installments"
+                    type="number"
+                    min="2"
+                    max="36"
+                    className="col-span-3"
+                    value={installments}
+                    onChange={(e) => setInstallments(parseInt(e.target.value) || 2)}
+                  />
+                </div>
+              )}
+              {isParceled && installments > 1 && value && (
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <div className="text-right text-sm text-muted-foreground">
+                    Valor por parcela:
+                  </div>
+                  <div className="col-span-3">
+                    <strong>R$ {(parseFloat(value) / installments).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
+                  </div>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>
+            <Button variant="outline" onClick={() => { setOpen(false); resetFormFields(); }}>
               Cancelar
             </Button>
             <Button onClick={handleAddExpense}>Adicionar</Button>
@@ -548,10 +972,8 @@ export default function ExpensesPage() {
                     locale={ptBR}
                     selected={selectedDate}
                     onSelect={setSelectedDate}
-                    disabled={(date) =>
-                      date > new Date() || date < new Date("2020-01-01")
-                    }
                     initialFocus
+                    className={cn("p-3 pointer-events-auto")}
                   />
                 </PopoverContent>
               </Popover>
@@ -598,6 +1020,36 @@ export default function ExpensesPage() {
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
               />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="status" className="text-right">
+                Status
+              </Label>
+              <Select
+                value={status}
+                onValueChange={setStatus}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Selecione um status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={EXPENSE_STATUS.PAGO}>
+                    <div className="flex items-center">
+                      <Check className="h-4 w-4 text-green-500 mr-2" /> Pago
+                    </div>
+                  </SelectItem>
+                  <SelectItem value={EXPENSE_STATUS.PENDENTE}>
+                    <div className="flex items-center">
+                      <Clock className="h-4 w-4 text-amber-500 mr-2" /> Pendente
+                    </div>
+                  </SelectItem>
+                  <SelectItem value={EXPENSE_STATUS.CANCELADO}>
+                    <div className="flex items-center">
+                      <X className="h-4 w-4 text-red-500 mr-2" /> Cancelado
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>
