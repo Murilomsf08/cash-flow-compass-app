@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import {
   Card,
@@ -55,7 +54,6 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-// Mock data - replace with API calls in a real application
 const MOCK_EXPENSES = [
   {
     id: 1,
@@ -137,7 +135,6 @@ const MOCK_EXPENSE_CATEGORIES = [
   "Outros",
 ];
 
-// Expense type
 type Expense = {
   id: number;
   date: Date;
@@ -158,10 +155,14 @@ export default function ExpensesPage() {
   const [description, setDescription] = useState("");
   const [value, setValue] = useState("");
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
+  const [statusMap, setStatusMap] = useState<{ [id: number]: string }>({}); // new for tracking status
+  const [actionsOpen, setActionsOpen] = useState<number | null>(null); // for 3-dots actions menu
 
   useEffect(() => {
-    // In a real app, this would be an API call
     setExpenses(MOCK_EXPENSES);
+    setStatusMap(
+      MOCK_EXPENSES.reduce((acc, exp) => ({ ...acc, [exp.id]: "Ativa" }), {})
+    );
   }, []);
 
   const handleAddExpense = () => {
@@ -190,7 +191,6 @@ export default function ExpensesPage() {
       description: "Despesa adicionada com sucesso.",
     });
 
-    // Clear form
     setSelectedDate(new Date());
     setCategory(MOCK_EXPENSE_CATEGORIES[0]);
     setDescription("");
@@ -238,7 +238,6 @@ export default function ExpensesPage() {
       description: "Despesa atualizada com sucesso.",
     });
 
-    // Clear form
     setSelectedExpense(null);
     setSelectedDate(new Date());
     setCategory(MOCK_EXPENSE_CATEGORIES[0]);
@@ -256,7 +255,13 @@ export default function ExpensesPage() {
     });
   };
 
-  // Chart data
+  const handleToggleStatus = (id: number) => {
+    setStatusMap(prev => ({
+      ...prev,
+      [id]: prev[id] === "Ativa" ? "Inativa" : "Ativa",
+    }));
+  };
+
   const monthlyExpenses = expenses.reduce((acc: any, expense: Expense) => {
     const month = format(expense.date, "MMMM", { locale: ptBR });
     if (acc[month]) {
@@ -272,10 +277,8 @@ export default function ExpensesPage() {
     value,
   }));
 
-  // Calculate total expenses
   const totalExpense = expenses.reduce((acc, expense) => acc + expense.value, 0);
 
-  // Calculate expenses by category
   const expensesByCategory = expenses.reduce((acc: any, expense: Expense) => {
     if (acc[expense.category]) {
       acc[expense.category] += expense.value;
@@ -285,10 +288,8 @@ export default function ExpensesPage() {
     return acc;
   }, {});
 
-  // Get current month
   const currentMonth = format(new Date(), "MMMM", { locale: ptBR });
 
-  // Calculate total expenses for the current month
   const totalForMonth = expenses.reduce((acc: number, expense: Expense) => {
     const month = format(expense.date, "MMMM", { locale: ptBR });
     if (month === currentMonth) {
@@ -299,11 +300,30 @@ export default function ExpensesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Despesas</h1>
-        <p className="text-muted-foreground">
-          Acompanhe suas despesas e mantenha o controle financeiro.
-        </p>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 gap-4">
+        <div className="flex flex-row gap-4 w-full md:w-auto">
+          <Card className="flex-1 min-w-[180px]">
+            <CardContent className="pt-4 pb-4 flex flex-col items-center">
+              <div className="text-muted-foreground text-xs">Total de Despesas</div>
+              <div className="text-2xl font-bold text-[#005f60]">R$ {totalExpense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+            </CardContent>
+          </Card>
+          <Card className="flex-1 min-w-[180px]">
+            <CardContent className="pt-4 pb-4 flex flex-col items-center">
+              <div className="text-muted-foreground text-xs">Qtd. de Despesas</div>
+              <div className="text-2xl font-bold text-[#faab36]">{expenses.length}</div>
+            </CardContent>
+          </Card>
+        </div>
+        <div className="flex justify-end w-full md:w-auto">
+          <Button
+            className="bg-[#005f60] text-white hover:bg-[#008083]"
+            onClick={() => setOpen(true)}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Nova Despesa
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -313,13 +333,14 @@ export default function ExpensesPage() {
             Todas as despesas registradas no sistema.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Data</TableHead>
                 <TableHead>Categoria</TableHead>
                 <TableHead>Descrição</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead className="text-right">Valor</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
@@ -327,31 +348,67 @@ export default function ExpensesPage() {
             <TableBody>
               {expenses.map((expense) => (
                 <TableRow key={expense.id}>
-                  <TableCell>
-                    {format(expense.date, "dd/MM/yyyy", { locale: ptBR })}
-                  </TableCell>
+                  <TableCell>{format(expense.date, "dd/MM/yyyy", { locale: ptBR })}</TableCell>
                   <TableCell>{expense.category}</TableCell>
                   <TableCell>{expense.description}</TableCell>
-                  <TableCell className="text-right">
-                    R$ {expense.value.toString()}
+                  <TableCell>
+                    <Button
+                      size="sm"
+                      variant={statusMap[expense.id] === "Ativa" ? "secondary" : "outline"}
+                      className={
+                        statusMap[expense.id] === "Ativa"
+                          ? "bg-[#057a55] text-white px-3"
+                          : "border border-[#fc4141] text-[#fc4141] px-3"
+                      }
+                      onClick={() => handleToggleStatus(expense.id)}
+                    >
+                      {statusMap[expense.id]}
+                    </Button>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleEditExpense(expense)}
-                    >
-                      <Edit className="mr-2 h-4 w-4" />
-                      Editar
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteExpense(expense)}
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Excluir
-                    </Button>
+                    <span className={expense.value < 0 ? "text-red-600" : ""}>
+                      R$ {expense.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="relative flex justify-end">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() =>
+                          setActionsOpen(actionsOpen === expense.id ? null : expense.id)
+                        }
+                      >
+                        <span className="sr-only">Ações</span>
+                        <svg width="18" height="18" fill="currentColor" viewBox="0 0 20 20">
+                          <circle cx="4" cy="10" r="2" />
+                          <circle cx="10" cy="10" r="2" />
+                          <circle cx="16" cy="10" r="2" />
+                        </svg>
+                      </Button>
+                      {actionsOpen === expense.id && (
+                        <div className="absolute z-10 right-0 mt-2 w-32 bg-white border border-gray-200 rounded shadow-lg animate-in fade-in-0">
+                          <button
+                            className="block w-full px-4 py-2 text-sm text-left hover:bg-muted hover:text-primary"
+                            onClick={() => {
+                              setActionsOpen(null);
+                              handleEditExpense(expense);
+                            }}
+                          >
+                            <Edit className="inline w-4 h-4 mr-2" /> Editar
+                          </button>
+                          <button
+                            className="block w-full px-4 py-2 text-sm text-left text-red-600 hover:bg-muted"
+                            onClick={() => {
+                              setActionsOpen(null);
+                              handleDeleteExpense(expense);
+                            }}
+                          >
+                            <Trash2 className="inline w-4 h-4 mr-2" /> Excluir
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -429,14 +486,7 @@ export default function ExpensesPage() {
         </CardContent>
       </Card>
 
-      {/* Add Expense Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild>
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Adicionar Despesa
-          </Button>
-        </DialogTrigger>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Adicionar Despesa</DialogTitle>
@@ -532,7 +582,6 @@ export default function ExpensesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Expense Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent>
           <DialogHeader>
