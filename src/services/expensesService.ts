@@ -1,8 +1,15 @@
 
 import { createClient } from '@supabase/supabase-js';
 
+// Certifique-se de que as variáveis de ambiente estão sendo acessadas corretamente
+// e garantir que os valores não sejam undefined
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+
+// Verifique se as variáveis foram carregadas
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('Variáveis de ambiente do Supabase não encontradas. Verifique se as variáveis VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY estão definidas.');
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
