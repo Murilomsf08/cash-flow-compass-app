@@ -24,11 +24,11 @@ export type ServiceDB = {
   date: string;
   commission: number;
   status: string;
-  seller?: string; // Kept as optional
+  seller?: string; // Optional
 };
 
 // Mock data para teste quando o Supabase não está disponível
-export const mockServices = [
+export const mockServices: ServiceDB[] = [
   { id: 1, name: "Consultoria", client: "Empresa A", value: 2500, date: "2025-03-15", commission: 250, status: "Pending", seller: "Carlos Silva" },
   { id: 2, name: "Desenvolvimento Web", client: "Empresa B", value: 5000, date: "2025-03-20", commission: 500, status: "Completed", seller: "Ana Martins" },
   { id: 3, name: "Design Gráfico", client: "Pessoa C", value: 1200, date: "2025-03-25", commission: 120, status: "Cancelled", seller: "João Santos" },
@@ -59,10 +59,10 @@ export const initializeServicesTable = async () => {
 // Inicializar tabela
 initializeServicesTable();
 
-export async function getServices() {
+export async function getServices(): Promise<ServiceDB[]> {
   if (!isSupabaseConfigured) {
     console.warn('Usando dados simulados para serviços. Conecte-se ao Supabase para dados reais.');
-    return mockServices;
+    return [...mockServices]; // Return a copy to avoid mutation issues
   }
 
   try {
@@ -92,7 +92,7 @@ export async function getServices() {
   } catch (error) {
     console.error('Erro ao buscar serviços, usando dados mock:', error);
     // Se houver erro de conexão, use os dados simulados
-    return mockServices;
+    return [...mockServices]; // Return a copy to avoid mutation issues
   }
 }
 
@@ -112,7 +112,7 @@ async function seedInitialServices() {
     
     if (count === 0) {
       console.log('Populando banco de dados com serviços iniciais...');
-      // Make sure we're not enforcing seller as required when seeding
+      
       const { error: insertError } = await supabase
         .from('services')
         .insert(mockServices);
@@ -128,7 +128,7 @@ async function seedInitialServices() {
   }
 }
 
-export async function addService(service: Omit<ServiceDB, 'id'>) {
+export async function addService(service: Omit<ServiceDB, 'id'>): Promise<ServiceDB> {
   if (!isSupabaseConfigured) {
     console.warn('Usando dados simulados. Conecte-se ao Supabase para dados reais.');
     const newService: ServiceDB = {
@@ -136,7 +136,7 @@ export async function addService(service: Omit<ServiceDB, 'id'>) {
       ...service,
     };
     mockServices.push(newService);
-    return newService;
+    return { ...newService }; // Return a copy to avoid mutation issues
   }
 
   try {
@@ -160,13 +160,13 @@ export async function addService(service: Omit<ServiceDB, 'id'>) {
 export async function updateService(
   id: number,
   service: Partial<Omit<ServiceDB, 'id'>>
-) {
+): Promise<ServiceDB> {
   if (!isSupabaseConfigured) {
     console.warn('Usando dados simulados. Conecte-se ao Supabase para dados reais.');
     const index = mockServices.findIndex(p => p.id === id);
     if (index >= 0) {
       mockServices[index] = { ...mockServices[index], ...service };
-      return mockServices[index];
+      return { ...mockServices[index] }; // Return a copy to avoid mutation issues
     }
     throw new Error('Serviço não encontrado');
   }
@@ -191,7 +191,7 @@ export async function updateService(
   }
 }
 
-export async function deleteService(id: number) {
+export async function deleteService(id: number): Promise<void> {
   if (!isSupabaseConfigured) {
     console.warn('Usando dados simulados. Conecte-se ao Supabase para dados reais.');
     const index = mockServices.findIndex(p => p.id === id);
@@ -214,6 +214,6 @@ export async function deleteService(id: number) {
   }
 }
 
-export async function toggleServiceStatus(id: number, newStatus: string) {
+export async function toggleServiceStatus(id: number, newStatus: string): Promise<ServiceDB> {
   return updateService(id, { status: newStatus });
 }

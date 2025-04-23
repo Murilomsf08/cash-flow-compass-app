@@ -14,7 +14,7 @@ export function useServices() {
 
   // Listar serviços
   const {
-    data: services = [], // Garantir que data seja sempre um array, mesmo que undefined
+    data: services = [],
     isLoading,
     error,
     refetch,
@@ -61,8 +61,11 @@ export function useServices() {
     },
   });
 
+  // Ensure services is always an array
+  const safeServices = Array.isArray(services) ? services : [];
+
   return {
-    services: Array.isArray(services) ? services : [], // Guarantee it's always an array
+    services: safeServices,
     isLoading,
     error,
     refetch,
