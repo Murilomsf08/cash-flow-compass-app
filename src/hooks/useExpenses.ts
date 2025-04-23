@@ -21,6 +21,8 @@ export function useExpenses() {
   } = useQuery({
     queryKey: ["expenses"],
     queryFn: getExpenses,
+    staleTime: 1000 * 60 * 5, // Dados ficam "frescos" por 5 minutos
+    retry: 2, // Tenta buscar os dados 2 vezes em caso de erro
   });
 
   // Adicionar despesa

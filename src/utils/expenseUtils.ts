@@ -35,11 +35,16 @@ export function filterExpenses(
 
   if (dateRange.from && dateRange.to) {
     filtered = filtered.filter((expense) => {
-      const expenseDate = parseISO(expense.date);
-      return isWithinInterval(expenseDate, {
-        start: dateRange.from,
-        end: dateRange.to,
-      });
+      try {
+        const expenseDate = parseISO(expense.date);
+        return isWithinInterval(expenseDate, {
+          start: dateRange.from,
+          end: dateRange.to,
+        });
+      } catch (error) {
+        console.error("Erro ao filtrar por data:", error);
+        return false;
+      }
     });
   }
 
@@ -61,34 +66,51 @@ export function filterExpenses(
 }
 
 export function calculateExpenseStats(expenses: ExpenseDB[]) {
-  const totalExpense = expenses.reduce((acc, e) => acc + (e.value || 0), 0);
+  // Garantir que expenses é um array válido
+  const validExpenses = Array.isArray(expenses) ? expenses : [];
 
-  const expensesByCategory = expenses.reduce((acc: Record<string, number>, expense) => {
+  // Calcular o total de despesas
+  const totalExpense = validExpenses.reduce((acc, e) => acc + (e.value || 0), 0);
+
+  // Calcular despesas por categoria
+  const expensesByCategory = validExpenses.reduce((acc: Record<string, number>, expense) => {
     if (acc[expense.category]) acc[expense.category] += expense.value;
     else acc[expense.category] = expense.value;
     return acc;
   }, {});
 
-  const monthlyExpenses = expenses.reduce((acc: Record<string, number>, expense) => {
-    const month = format(parseISO(expense.date), "MMMM", { locale: ptBR });
-    if (acc[month]) acc[month] += expense.value;
-    else acc[month] = expense.value;
+  // Calcular despesas mensais para o gráfico
+  const monthlyExpenses = validExpenses.reduce((acc: Record<string, number>, expense) => {
+    try {
+      const month = format(parseISO(expense.date), "MMMM", { locale: ptBR });
+      if (acc[month]) acc[month] += expense.value;
+      else acc[month] = expense.value;
+    } catch (error) {
+      console.error("Erro ao processar data da despesa:", error);
+    }
     return acc;
   }, {});
 
+  // Preparar dados para o gráfico
   const chartData = Object.entries(monthlyExpenses).map(([month, value]) => ({
     month,
     value,
   }));
 
+  // Calcular total do mês atual
   const currentMonth = format(new Date(), "MMMM", { locale: ptBR });
-  const totalForMonth = expenses.reduce((acc, expense) => {
-    const month = format(parseISO(expense.date), "MMMM", { locale: ptBR });
-    if (month === currentMonth) acc += expense.value;
+  const totalForMonth = validExpenses.reduce((acc, expense) => {
+    try {
+      const month = format(parseISO(expense.date), "MMMM", { locale: ptBR });
+      if (month === currentMonth) acc += expense.value;
+    } catch (error) {
+      console.error("Erro ao processar data para o mês atual:", error);
+    }
     return acc;
   }, 0);
 
-  const statusData = expenses.reduce((acc: Record<string, number>, expense) => {
+  // Calcular dados por status
+  const statusData = validExpenses.reduce((acc: Record<string, number>, expense) => {
     if (!acc[expense.status]) acc[expense.status] = 0;
     acc[expense.status] += 1;
     return acc;

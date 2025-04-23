@@ -8,6 +8,7 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { EXPENSE_STATUS } from "@/utils/expenseUtils";
+import { useToast } from "@/hooks/use-toast";
 
 interface StatusDropdownProps {
   expense: any;
@@ -15,6 +16,21 @@ interface StatusDropdownProps {
 }
 
 export function StatusDropdown({ expense, onStatusChange }: StatusDropdownProps) {
+  const { toast } = useToast();
+  
+  const handleStatusChange = (newStatus: string) => {
+    try {
+      onStatusChange(expense.id, newStatus);
+    } catch (error) {
+      console.error("Erro ao mudar status:", error);
+      toast({
+        title: "Erro ao alterar status",
+        description: "Não foi possível alterar o status da despesa.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -33,13 +49,13 @@ export function StatusDropdown({ expense, onStatusChange }: StatusDropdownProps)
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="z-50 bg-white">
-        <DropdownMenuItem onClick={() => onStatusChange(expense.id, EXPENSE_STATUS.PAGO)}>
+        <DropdownMenuItem onClick={() => handleStatusChange(EXPENSE_STATUS.PAGO)}>
           <Check className="w-4 h-4 mr-2 text-green-500" /> Pago
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onStatusChange(expense.id, EXPENSE_STATUS.PENDENTE)}>
+        <DropdownMenuItem onClick={() => handleStatusChange(EXPENSE_STATUS.PENDENTE)}>
           <Clock className="w-4 h-4 mr-2 text-amber-500" /> Pendente
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onStatusChange(expense.id, EXPENSE_STATUS.CANCELADO)}>
+        <DropdownMenuItem onClick={() => handleStatusChange(EXPENSE_STATUS.CANCELADO)}>
           <X className="w-4 h-4 mr-2 text-red-500" /> Cancelado
         </DropdownMenuItem>
       </DropdownMenuContent>

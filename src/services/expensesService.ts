@@ -2,11 +2,10 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Certifique-se de que as variáveis de ambiente estão sendo acessadas corretamente
-// e garantir que os valores não sejam undefined
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-supabase-url.supabase.co';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key';
 
-// Verifique se as variáveis foram carregadas com valores reais (não os fallbacks)
+// Verifique se as variáveis foram carregadas com valores reais
 if (supabaseUrl === 'https://your-supabase-url.supabase.co' || supabaseAnonKey === 'your-anon-key') {
   console.error('Variáveis de ambiente do Supabase não encontradas ou usando valores padrão. Para funcionalidade completa, conecte-se à Supabase através da integração Lovable.');
 }
@@ -85,10 +84,15 @@ export async function getExpenses() {
       .select('*')
       .order('date', { ascending: true });
     
-    if (error) throw error;
+    if (error) {
+      console.error('Erro ao buscar despesas:', error);
+      throw error;
+    }
+    
+    console.log('Dados obtidos do Supabase:', data);
     return data as ExpenseDB[];
   } catch (error) {
-    console.error('Erro ao buscar despesas:', error);
+    console.error('Erro ao buscar despesas, usando dados mock:', error);
     return mockExpenses;
   }
 }
