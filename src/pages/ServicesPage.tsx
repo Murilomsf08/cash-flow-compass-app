@@ -720,7 +720,7 @@ export default function ServicesPage() {
                           {status.label}
                         </div>
                       </CommandItem>
-                    ))}
+                    )) : null}
                   </CommandGroup>
                 </Command>
               </PopoverContent>
