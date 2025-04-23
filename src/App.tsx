@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -15,11 +15,27 @@ import LoginPage from "@/pages/LoginPage";
 import UsersPage from "@/pages/UsersPage";
 import { AuthProvider, PERMISSIONS } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { initializeAllServices } from "@/services/initializeServices";
 
-// Create a client
-const queryClient = new QueryClient();
+// Create a client with custom configs
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 2,
+      retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
+      staleTime: 1000 * 60 * 5, // 5 minutos
+      refetchOnWindowFocus: true,
+      refetchOnMount: true,
+    },
+  },
+});
 
 const App: React.FC = () => {
+  useEffect(() => {
+    // Inicializar serviços ao carregar o aplicativo
+    initializeAllServices();
+  }, []);
+
   return (
     <React.StrictMode>
       <QueryClientProvider client={queryClient}>

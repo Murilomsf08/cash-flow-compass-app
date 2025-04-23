@@ -18,11 +18,14 @@ export function useExpenses() {
     data: expenses,
     isLoading,
     error,
+    refetch,
   } = useQuery({
     queryKey: ["expenses"],
     queryFn: getExpenses,
     staleTime: 1000 * 60 * 5, // Dados ficam "frescos" por 5 minutos
     retry: 2, // Tenta buscar os dados 2 vezes em caso de erro
+    refetchOnWindowFocus: true, // Recarrega os dados quando o foco volta para a janela
+    refetchOnMount: true, // Recarrega os dados quando o componente é montado
   });
 
   // Adicionar despesa
@@ -71,6 +74,7 @@ export function useExpenses() {
     expenses,
     isLoading,
     error,
+    refetch,
     addExpense: addExpenseMutation.mutateAsync,
     adding: addExpenseMutation.isPending,
     addMultipleExpenses: addMultipleExpensesMutation.mutateAsync,

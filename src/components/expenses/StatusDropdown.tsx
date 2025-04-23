@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { EXPENSE_STATUS } from "@/utils/expenseUtils";
 import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
 
 interface StatusDropdownProps {
   expense: any;
@@ -17,17 +18,31 @@ interface StatusDropdownProps {
 
 export function StatusDropdown({ expense, onStatusChange }: StatusDropdownProps) {
   const { toast } = useToast();
+  const [isChanging, setIsChanging] = useState(false);
   
-  const handleStatusChange = (newStatus: string) => {
+  const handleStatusChange = async (newStatus: string) => {
+    if (isChanging) return; // Evita múltiplos cliques
+    
+    // Evita alterar para o mesmo status
+    if (expense.status === newStatus) return;
+    
+    setIsChanging(true);
+    
     try {
-      onStatusChange(expense.id, newStatus);
+      await onStatusChange(expense.id, newStatus);
+      toast({
+        title: "Status atualizado",
+        description: `Status alterado para ${newStatus} com sucesso.`,
+      });
     } catch (error) {
       console.error("Erro ao mudar status:", error);
       toast({
         title: "Erro ao alterar status",
-        description: "Não foi possível alterar o status da despesa.",
+        description: "Não foi possível alterar o status da despesa. Tente novamente.",
         variant: "destructive",
       });
+    } finally {
+      setIsChanging(false);
     }
   };
 
@@ -44,8 +59,9 @@ export function StatusDropdown({ expense, onStatusChange }: StatusDropdownProps)
               ? "border-amber-500 text-amber-500 px-2"
               : "border-red-600 text-red-600 px-2"
           }
+          disabled={isChanging}
         >
-          {expense.status}
+          {isChanging ? "Alterando..." : expense.status}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="z-50 bg-white">

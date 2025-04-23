@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,17 +15,20 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, Edit, Trash } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-
-// Mock data
-const initialSellers = [
-  { id: 1, name: "João Silva", email: "joao@empresa.com", phone: "(11) 98765-4321", commission: 10 },
-  { id: 2, name: "Maria Oliveira", email: "maria@empresa.com", phone: "(11) 91234-5678", commission: 12 },
-  { id: 3, name: "Pedro Santos", email: "pedro@empresa.com", phone: "(11) 99876-5432", commission: 8 },
-];
+import { useSellers } from "@/hooks/useSellers";
 
 export default function SellerRegistration() {
   const { toast } = useToast();
-  const [sellers, setSellers] = useState(initialSellers);
+  const { 
+    sellers,
+    isLoading,
+    error,
+    refetch,
+    addSeller,
+    updateSeller,
+    deleteSeller
+  } = useSellers();
+  
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -39,6 +42,11 @@ export default function SellerRegistration() {
     commission: ""
   });
 
+  useEffect(() => {
+    // Forçar o carregamento dos dados ao montar o componente
+    refetch();
+  }, [refetch]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData({
@@ -51,12 +59,12 @@ export default function SellerRegistration() {
     setSearchTerm(e.target.value);
   };
 
-  const filteredSellers = sellers.filter(seller => 
+  const filteredSellers = sellers?.filter(seller => 
     seller.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     seller.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  ) || [];
 
-  const handleAddSeller = () => {
+  const handleAddSeller = async () => {
     // Form validation
     if (!formData.name || !formData.email) {
       toast({
@@ -89,46 +97,48 @@ export default function SellerRegistration() {
       return;
     }
 
-    if (isEditMode && currentSellerId !== null) {
-      // Update existing seller
-      const updatedSellers = sellers.map(seller => 
-        seller.id === currentSellerId ? 
-        {
-          ...seller,
+    try {
+      if (isEditMode && currentSellerId !== null) {
+        // Update existing seller
+        await updateSeller({
+          id: currentSellerId,
           name: formData.name,
           email: formData.email,
           phone: formData.phone,
           commission: commission
-        } : seller
-      );
-      
-      setSellers(updatedSellers);
+        });
+        
+        toast({
+          title: "Vendedor atualizado",
+          description: "As informações do vendedor foram atualizadas com sucesso."
+        });
+      } else {
+        // Add new seller
+        await addSeller({
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          commission: commission
+        });
+        
+        toast({
+          title: "Vendedor registrado",
+          description: "O vendedor foi adicionado com sucesso."
+        });
+      }
+
+      // Reset form and close dialog
+      resetForm();
+    } catch (error: any) {
       toast({
-        title: "Vendedor atualizado",
-        description: "As informações do vendedor foram atualizadas com sucesso."
-      });
-    } else {
-      // Add new seller
-      const newSeller = {
-        id: sellers.length > 0 ? Math.max(...sellers.map(s => s.id)) + 1 : 1,
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        commission: commission
-      };
-      
-      setSellers([...sellers, newSeller]);
-      toast({
-        title: "Vendedor registrado",
-        description: "O vendedor foi adicionado com sucesso."
+        title: "Erro",
+        description: error.message || "Ocorreu um erro ao salvar o vendedor.",
+        variant: "destructive"
       });
     }
-
-    // Reset form and close dialog
-    resetForm();
   };
 
-  const handleEdit = (seller: typeof sellers[0]) => {
+  const handleEdit = (seller: any) => {
     setFormData({
       name: seller.name,
       email: seller.email,
@@ -140,13 +150,20 @@ export default function SellerRegistration() {
     setIsDialogOpen(true);
   };
 
-  const handleDelete = (id: number) => {
-    const updatedSellers = sellers.filter(seller => seller.id !== id);
-    setSellers(updatedSellers);
-    toast({
-      title: "Vendedor removido",
-      description: "O vendedor foi removido com sucesso."
-    });
+  const handleDelete = async (id: number) => {
+    try {
+      await deleteSeller(id);
+      toast({
+        title: "Vendedor removido",
+        description: "O vendedor foi removido com sucesso."
+      });
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message || "Ocorreu um erro ao remover o vendedor.",
+        variant: "destructive"
+      });
+    }
   };
 
   const resetForm = () => {
@@ -184,45 +201,60 @@ export default function SellerRegistration() {
 
       <Card>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nome</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Telefone</TableHead>
-                <TableHead className="text-right">Comissão (%)</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredSellers.length > 0 ? (
-                filteredSellers.map(seller => (
-                  <TableRow key={seller.id}>
-                    <TableCell>{seller.name}</TableCell>
-                    <TableCell>{seller.email}</TableCell>
-                    <TableCell>{seller.phone}</TableCell>
-                    <TableCell className="text-right">{seller.commission}%</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end space-x-2">
-                        <Button variant="ghost" size="sm" onClick={() => handleEdit(seller)}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleDelete(seller.id)}>
-                          <Trash className="h-4 w-4" />
-                        </Button>
-                      </div>
+          {isLoading ? (
+            <div className="p-6 text-center">Carregando vendedores...</div>
+          ) : error ? (
+            <div className="p-6 text-center text-red-500">
+              Erro ao carregar dados. Por favor, tente novamente.
+              <Button 
+                variant="outline" 
+                className="mt-2 mx-auto block"
+                onClick={() => refetch()}
+              >
+                Tentar novamente
+              </Button>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Telefone</TableHead>
+                  <TableHead className="text-right">Comissão (%)</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredSellers.length > 0 ? (
+                  filteredSellers.map(seller => (
+                    <TableRow key={seller.id}>
+                      <TableCell>{seller.name}</TableCell>
+                      <TableCell>{seller.email}</TableCell>
+                      <TableCell>{seller.phone}</TableCell>
+                      <TableCell className="text-right">{seller.commission}%</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end space-x-2">
+                          <Button variant="ghost" size="sm" onClick={() => handleEdit(seller)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => handleDelete(seller.id)}>
+                            <Trash className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={5} className="h-24 text-center">
+                      Nenhum vendedor encontrado.
                     </TableCell>
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center">
-                    Nenhum vendedor encontrado.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                )}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 
