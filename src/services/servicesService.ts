@@ -24,7 +24,7 @@ export type ServiceDB = {
   date: string;
   commission: number;
   status: string;
-  seller?: string;
+  seller?: string; // Kept as optional
 };
 
 // Mock data para teste quando o Supabase não está disponível
@@ -112,6 +112,7 @@ async function seedInitialServices() {
     
     if (count === 0) {
       console.log('Populando banco de dados com serviços iniciais...');
+      // Make sure we're not enforcing seller as required when seeding
       const { error: insertError } = await supabase
         .from('services')
         .insert(mockServices);

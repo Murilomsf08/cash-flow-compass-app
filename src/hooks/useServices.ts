@@ -62,7 +62,7 @@ export function useServices() {
   });
 
   return {
-    services,
+    services: Array.isArray(services) ? services : [], // Guarantee it's always an array
     isLoading,
     error,
     refetch,

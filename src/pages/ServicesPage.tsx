@@ -244,7 +244,8 @@ export default function ServicesPage() {
         const updatedItem = { ...item, [field]: value };
         
         if (field === 'product') {
-          const selectedProduct = products.find(p => p.id.toString() === value);
+          const productsArray = Array.isArray(products) ? products : [];
+          const selectedProduct = productsArray.find(p => p && p.id && p.id.toString() === value);
           updatedItem.unitPrice = selectedProduct ? selectedProduct.price : 0;
           updatedItem.total = updatedItem.unitPrice * updatedItem.quantity;
         } else if (field === 'quantity') {
@@ -272,18 +273,21 @@ export default function ServicesPage() {
     }
 
     try {
-      const clientName = clients.find(c => c.id.toString() === selectedClient)?.name || "";
-      const sellerName = sellers.find(s => s.id.toString() === selectedSeller)?.name || "";
+      const clientName = clients.find(c => c && c.id && c.id.toString() === selectedClient)?.name || "";
+      const sellerName = (Array.isArray(sellers) ? sellers : []).find(s => s && s.id && s.id.toString() === selectedSeller)?.name || "";
       const total = calculateTotal();
       
       const newService = {
-        name: lineItems.map(item => products.find(p => p.id.toString() === item.product)?.name).join(", "),
+        name: lineItems.map(item => {
+          const productsArray = Array.isArray(products) ? products : [];
+          return productsArray.find(p => p && p.id && p.id.toString() === item.product)?.name;
+        }).filter(Boolean).join(", "),
         client: clientName,
         value: total,
         date: new Date().toISOString().split('T')[0],
         commission: total * 0.10,
         status: "Pending",
-        seller: sellerName
+        seller: sellerName || undefined
       };
 
       await addService(newService);
@@ -298,6 +302,7 @@ export default function ServicesPage() {
         description: "O serviço foi adicionado com sucesso."
       });
     } catch (error) {
+      console.error("Erro ao adicionar serviço:", error);
       toast({
         title: "Erro ao registrar serviço",
         description: "Ocorreu um erro ao registrar o serviço. Tente novamente.",
@@ -445,6 +450,11 @@ export default function ServicesPage() {
   const productsArray = Array.isArray(products) ? products : [];
   const sellersArray = Array.isArray(sellers) ? sellers : [];
 
+  // Ensure we have items to render in CommandGroup (fix for undefined is not iterable)
+  const renderClientsList = Array.isArray(clients) && clients.length > 0 ? clients : [];
+  const renderSellersArray = Array.isArray(sellersArray) && sellersArray.length > 0 ? sellersArray : [];
+  const renderProductsArray = Array.isArray(productsArray) && productsArray.length > 0 ? productsArray : [];
+
   return (
     <div>
       <PageHeader 
@@ -559,7 +569,7 @@ export default function ServicesPage() {
                       />
                       <span>Todos</span>
                     </CommandItem>
-                    {clients && clients.length > 0 ? clients.map((client) => (
+                    {renderClientsList.map((client) => (
                       <CommandItem
                         key={client.id}
                         onSelect={() => updateClientFilter(client.name)}
@@ -572,7 +582,7 @@ export default function ServicesPage() {
                         />
                         {client.name}
                       </CommandItem>
-                    )) : null}
+                    ))}
                   </CommandGroup>
                 </Command>
               </PopoverContent>
@@ -604,7 +614,7 @@ export default function ServicesPage() {
                       />
                       <span>Todos</span>
                     </CommandItem>
-                    {sellersArray && sellersArray.length > 0 ? sellersArray.map((seller) => (
+                    {renderSellersArray.map((seller) => (
                       <CommandItem
                         key={seller.id}
                         onSelect={() => updateSellerFilter(seller.name)}
@@ -617,7 +627,7 @@ export default function ServicesPage() {
                         />
                         {seller.name}
                       </CommandItem>
-                    )) : null}
+                    ))}
                   </CommandGroup>
                 </Command>
               </PopoverContent>
@@ -649,7 +659,7 @@ export default function ServicesPage() {
                       />
                       <span>Todos</span>
                     </CommandItem>
-                    {productsArray && productsArray.length > 0 ? productsArray.map((product) => (
+                    {renderProductsArray.map((product) => (
                       <CommandItem
                         key={product.id}
                         onSelect={() => updateProductFilter(product.name)}
@@ -662,7 +672,7 @@ export default function ServicesPage() {
                         />
                         {product.name}
                       </CommandItem>
-                    )) : null}
+                    ))}
                   </CommandGroup>
                 </Command>
               </PopoverContent>
@@ -710,7 +720,7 @@ export default function ServicesPage() {
                           {status.label}
                         </div>
                       </CommandItem>
-                    )) : null}
+                    ))}
                   </CommandGroup>
                 </Command>
               </PopoverContent>
@@ -857,7 +867,7 @@ export default function ServicesPage() {
                         className="w-full justify-between"
                       >
                         {selectedClient
-                          ? clients.find((client) => client.id.toString() === selectedClient)?.name
+                          ? renderClientsList.find((client) => client.id.toString() === selectedClient)?.name
                           : "Selecione o cliente"}
                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                       </Button>
@@ -867,7 +877,7 @@ export default function ServicesPage() {
                         <CommandInput placeholder="Buscar cliente..." />
                         <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
                         <CommandGroup>
-                          {clients && clients.length > 0 ? clients.map((client) => (
+                          {renderClientsList.map((client) => (
                             <CommandItem
                               key={client.id}
                               value={client.name}
@@ -884,7 +894,7 @@ export default function ServicesPage() {
                               />
                               {client.name}
                             </CommandItem>
-                          )) : null}
+                          ))}
                         </CommandGroup>
                       </Command>
                     </PopoverContent>
@@ -905,7 +915,7 @@ export default function ServicesPage() {
                       className="w-full justify-between"
                     >
                       {selectedSeller
-                        ? sellersArray.find((seller) => seller.id.toString() === selectedSeller)?.name
+                        ? renderSellersArray.find((seller) => seller.id.toString() === selectedSeller)?.name
                         : "Selecione o vendedor (opcional)"}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
@@ -915,7 +925,7 @@ export default function ServicesPage() {
                       <CommandInput placeholder="Buscar vendedor..." />
                       <CommandEmpty>Nenhum vendedor encontrado.</CommandEmpty>
                       <CommandGroup>
-                        {sellersArray && sellersArray.length > 0 ? sellersArray.map((seller) => (
+                        {renderSellersArray.map((seller) => (
                           <CommandItem
                             key={seller.id}
                             value={seller.name}
@@ -932,7 +942,7 @@ export default function ServicesPage() {
                             />
                             {seller.name}
                           </CommandItem>
-                        )) : null}
+                        ))}
                       </CommandGroup>
                     </Command>
                   </PopoverContent>
@@ -971,7 +981,7 @@ export default function ServicesPage() {
                               <SelectValue placeholder="Selecione" />
                             </SelectTrigger>
                             <SelectContent>
-                              {productsArray.map(product => (
+                              {renderProductsArray.map(product => (
                                 <SelectItem key={product.id} value={product.id.toString()}>
                                   {product.name} - R$ {product.price?.toFixed(2) || "0.00"}
                                 </SelectItem>
