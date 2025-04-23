@@ -66,7 +66,6 @@ import { useServices } from "@/hooks/useServices";
 import { useProducts } from "@/hooks/useProducts";
 import { useSellers } from "@/hooks/useSellers";
 
-// Mock clientes enquanto não temos um serviço real
 const clients = [
   { id: 1, name: "Empresa A", email: "contato@empresaa.com" },
   { id: 2, name: "Empresa B", email: "contato@empresab.com" },
@@ -132,8 +131,13 @@ export default function ServicesPage() {
     discounts: 0
   });
 
-  // Garantindo que services é sempre um array
   const servicesArray = Array.isArray(services) ? services : [];
+  const productsArray = Array.isArray(products) ? products : [];
+  const sellersArray = Array.isArray(sellers) ? sellers : [];
+
+  const renderClientsList = clients;
+  const renderSellersArray = Array.isArray(sellersArray) ? sellersArray : [];
+  const renderProductsArray = Array.isArray(productsArray) ? productsArray : [];
 
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
@@ -141,7 +145,6 @@ export default function ServicesPage() {
 
   const filterServices = () => {
     return (servicesArray || []).filter(service => {
-      // Fallback case if service is undefined
       if (!service) return false;
       
       const searchMatch = searchTerm ? 
@@ -445,15 +448,6 @@ export default function ServicesPage() {
     return <div className="p-8 text-center">Carregando dados...</div>;
   }
 
-  // Garantindo que services, products e sellers são arrays
-  const productsArray = Array.isArray(products) ? products : [];
-  const sellersArray = Array.isArray(sellers) ? sellers : [];
-
-  // Ensure we have items to render in CommandGroup (fix for undefined is not iterable)
-  const renderClientsList = clients || [];
-  const renderSellersArray = sellersArray || [];
-  const renderProductsArray = productsArray || [];
-
   return (
     <div>
       <PageHeader 
@@ -568,7 +562,7 @@ export default function ServicesPage() {
                       />
                       <span>Todos</span>
                     </CommandItem>
-                    {renderClientsList.map((client) => (
+                    {renderClientsList && renderClientsList.map((client) => (
                       <CommandItem
                         key={client.id}
                         onSelect={() => updateClientFilter(client.name)}
@@ -613,7 +607,7 @@ export default function ServicesPage() {
                       />
                       <span>Todos</span>
                     </CommandItem>
-                    {renderSellersArray.map((seller) => (
+                    {renderSellersArray && renderSellersArray.map((seller) => (
                       <CommandItem
                         key={seller.id}
                         onSelect={() => updateSellerFilter(seller.name)}
@@ -658,7 +652,7 @@ export default function ServicesPage() {
                       />
                       <span>Todos</span>
                     </CommandItem>
-                    {renderProductsArray.map((product) => (
+                    {renderProductsArray && renderProductsArray.map((product) => (
                       <CommandItem
                         key={product.id}
                         onSelect={() => updateProductFilter(product.name)}
@@ -865,7 +859,7 @@ export default function ServicesPage() {
                         aria-expanded={openClientCombobox}
                         className="w-full justify-between"
                       >
-                        {selectedClient && renderClientsList.length > 0
+                        {selectedClient && renderClientsList
                           ? renderClientsList.find((client) => client?.id?.toString() === selectedClient)?.name || "Selecione o cliente"
                           : "Selecione o cliente"}
                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -875,28 +869,26 @@ export default function ServicesPage() {
                       <Command>
                         <CommandInput placeholder="Buscar cliente..." />
                         <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
-                        {renderClientsList.length > 0 && (
-                          <CommandGroup>
-                            {renderClientsList.map((client) => (
-                              <CommandItem
-                                key={client.id}
-                                value={client.name}
-                                onSelect={() => {
-                                  setSelectedClient(client.id.toString());
-                                  setOpenClientCombobox(false);
-                                }}
-                              >
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    selectedClient === client.id.toString() ? "opacity-100" : "opacity-0"
-                                  )}
-                                />
-                                {client.name}
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        )}
+                        <CommandGroup>
+                          {renderClientsList && renderClientsList.map((client) => (
+                            <CommandItem
+                              key={client.id}
+                              value={client.name}
+                              onSelect={() => {
+                                setSelectedClient(client.id.toString());
+                                setOpenClientCombobox(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedClient === client.id.toString() ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {client.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
                       </Command>
                     </PopoverContent>
                   </Popover>
@@ -915,7 +907,7 @@ export default function ServicesPage() {
                       aria-expanded={openSellerCombobox}
                       className="w-full justify-between"
                     >
-                      {selectedSeller && renderSellersArray.length > 0
+                      {selectedSeller && renderSellersArray
                         ? renderSellersArray.find((seller) => seller?.id?.toString() === selectedSeller)?.name || "Selecione o vendedor (opcional)"
                         : "Selecione o vendedor (opcional)"}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -925,28 +917,26 @@ export default function ServicesPage() {
                     <Command>
                       <CommandInput placeholder="Buscar vendedor..." />
                       <CommandEmpty>Nenhum vendedor encontrado.</CommandEmpty>
-                      {renderSellersArray.length > 0 && (
-                        <CommandGroup>
-                          {renderSellersArray.map((seller) => (
-                            <CommandItem
-                              key={seller.id}
-                              value={seller.name}
-                              onSelect={() => {
-                                setSelectedSeller(seller.id.toString());
-                                setOpenSellerCombobox(false);
-                              }}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  selectedSeller === seller.id.toString() ? "opacity-100" : "opacity-0"
-                                )}
-                              />
-                              {seller.name}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      )}
+                      <CommandGroup>
+                        {renderSellersArray && renderSellersArray.map((seller) => (
+                          <CommandItem
+                            key={seller.id}
+                            value={seller.name}
+                            onSelect={() => {
+                              setSelectedSeller(seller.id.toString());
+                              setOpenSellerCombobox(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                selectedSeller === seller.id.toString() ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {seller.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
                     </Command>
                   </PopoverContent>
                 </Popover>
