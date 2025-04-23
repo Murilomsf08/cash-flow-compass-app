@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
@@ -451,9 +450,9 @@ export default function ServicesPage() {
   const sellersArray = Array.isArray(sellers) ? sellers : [];
 
   // Ensure we have items to render in CommandGroup (fix for undefined is not iterable)
-  const renderClientsList = Array.isArray(clients) && clients.length > 0 ? clients : [];
-  const renderSellersArray = Array.isArray(sellersArray) && sellersArray.length > 0 ? sellersArray : [];
-  const renderProductsArray = Array.isArray(productsArray) && productsArray.length > 0 ? productsArray : [];
+  const renderClientsList = clients || [];
+  const renderSellersArray = sellersArray || [];
+  const renderProductsArray = productsArray || [];
 
   return (
     <div>
@@ -775,7 +774,7 @@ export default function ServicesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredServices.length > 0 ? (
+              {filteredServices && filteredServices.length > 0 ? (
                 filteredServices.map(service => (
                   <TableRow key={service.id}>
                     <TableCell>
@@ -797,7 +796,7 @@ export default function ServicesPage() {
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Alterar status</DropdownMenuLabel>
                           <DropdownMenuSeparator />
-                          {statusOptions.map(option => (
+                          {statusOptions && statusOptions.map(option => (
                             <DropdownMenuItem 
                               key={option.value}
                               onClick={() => handleChangeStatus(service.id, option.value)}
@@ -866,8 +865,8 @@ export default function ServicesPage() {
                         aria-expanded={openClientCombobox}
                         className="w-full justify-between"
                       >
-                        {selectedClient
-                          ? renderClientsList.find((client) => client.id.toString() === selectedClient)?.name
+                        {selectedClient && renderClientsList.length > 0
+                          ? renderClientsList.find((client) => client?.id?.toString() === selectedClient)?.name || "Selecione o cliente"
                           : "Selecione o cliente"}
                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                       </Button>
@@ -876,26 +875,28 @@ export default function ServicesPage() {
                       <Command>
                         <CommandInput placeholder="Buscar cliente..." />
                         <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
-                        <CommandGroup>
-                          {renderClientsList.map((client) => (
-                            <CommandItem
-                              key={client.id}
-                              value={client.name}
-                              onSelect={() => {
-                                setSelectedClient(client.id.toString());
-                                setOpenClientCombobox(false);
-                              }}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  selectedClient === client.id.toString() ? "opacity-100" : "opacity-0"
-                                )}
-                              />
-                              {client.name}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
+                        {renderClientsList.length > 0 && (
+                          <CommandGroup>
+                            {renderClientsList.map((client) => (
+                              <CommandItem
+                                key={client.id}
+                                value={client.name}
+                                onSelect={() => {
+                                  setSelectedClient(client.id.toString());
+                                  setOpenClientCombobox(false);
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    selectedClient === client.id.toString() ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                {client.name}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        )}
                       </Command>
                     </PopoverContent>
                   </Popover>
@@ -914,8 +915,8 @@ export default function ServicesPage() {
                       aria-expanded={openSellerCombobox}
                       className="w-full justify-between"
                     >
-                      {selectedSeller
-                        ? renderSellersArray.find((seller) => seller.id.toString() === selectedSeller)?.name
+                      {selectedSeller && renderSellersArray.length > 0
+                        ? renderSellersArray.find((seller) => seller?.id?.toString() === selectedSeller)?.name || "Selecione o vendedor (opcional)"
                         : "Selecione o vendedor (opcional)"}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
@@ -924,26 +925,28 @@ export default function ServicesPage() {
                     <Command>
                       <CommandInput placeholder="Buscar vendedor..." />
                       <CommandEmpty>Nenhum vendedor encontrado.</CommandEmpty>
-                      <CommandGroup>
-                        {renderSellersArray.map((seller) => (
-                          <CommandItem
-                            key={seller.id}
-                            value={seller.name}
-                            onSelect={() => {
-                              setSelectedSeller(seller.id.toString());
-                              setOpenSellerCombobox(false);
-                            }}
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                selectedSeller === seller.id.toString() ? "opacity-100" : "opacity-0"
-                              )}
-                            />
-                            {seller.name}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
+                      {renderSellersArray.length > 0 && (
+                        <CommandGroup>
+                          {renderSellersArray.map((seller) => (
+                            <CommandItem
+                              key={seller.id}
+                              value={seller.name}
+                              onSelect={() => {
+                                setSelectedSeller(seller.id.toString());
+                                setOpenSellerCombobox(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedSeller === seller.id.toString() ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {seller.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      )}
                     </Command>
                   </PopoverContent>
                 </Popover>
@@ -981,7 +984,7 @@ export default function ServicesPage() {
                               <SelectValue placeholder="Selecione" />
                             </SelectTrigger>
                             <SelectContent>
-                              {renderProductsArray.map(product => (
+                              {renderProductsArray.length > 0 && renderProductsArray.map(product => (
                                 <SelectItem key={product.id} value={product.id.toString()}>
                                   {product.name} - R$ {product.price?.toFixed(2) || "0.00"}
                                 </SelectItem>
