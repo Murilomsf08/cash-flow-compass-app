@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
@@ -62,34 +63,16 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { useServices } from "@/hooks/useServices";
+import { useProducts } from "@/hooks/useProducts";
+import { useSellers } from "@/hooks/useSellers";
 
-const initialServices = [
-  { id: 1, name: "Consultoria", client: "Empresa A", value: 2500, date: "2025-03-15", commission: 250, status: "Pending", seller: "Carlos Silva" },
-  { id: 2, name: "Desenvolvimento Web", client: "Empresa B", value: 5000, date: "2025-03-20", commission: 500, status: "Completed", seller: "Ana Martins" },
-  { id: 3, name: "Design Gráfico", client: "Pessoa C", value: 1200, date: "2025-03-25", commission: 120, status: "Cancelled", seller: "João Santos" },
-  { id: 4, name: "Suporte Técnico", client: "Empresa A", value: 800, date: "2025-04-01", commission: 80, status: "Pending", seller: "Maria Souza" },
-  { id: 5, name: "Consultoria", client: "Pessoa D", value: 3000, date: "2025-04-02", commission: 300, status: "Completed", seller: "Carlos Silva" },
-];
-
-const products = [
-  { id: 1, name: "Consultoria", value: 2500 },
-  { id: 2, name: "Desenvolvimento Web", value: 5000 },
-  { id: 3, name: "Design Gráfico", value: 1200 },
-  { id: 4, name: "Suporte Técnico", value: 800 },
-];
-
+// Mock clientes enquanto não temos um serviço real
 const clients = [
   { id: 1, name: "Empresa A", email: "contato@empresaa.com" },
   { id: 2, name: "Empresa B", email: "contato@empresab.com" },
   { id: 3, name: "Pessoa C", email: "pessoac@email.com" },
   { id: 4, name: "Pessoa D", email: "pessoad@email.com" },
-];
-
-const sellers = [
-  { id: 1, name: "Carlos Silva" },
-  { id: 2, name: "Ana Martins" },
-  { id: 3, name: "João Santos" },
-  { id: 4, name: "Maria Souza" },
 ];
 
 const statusOptions = [
@@ -101,7 +84,10 @@ const statusOptions = [
 
 export default function ServicesPage() {
   const { toast } = useToast();
-  const [services, setServices] = useState(initialServices);
+  const { services = [], isLoading: loadingServices, addService, toggleStatus } = useServices();
+  const { products = [], isLoading: loadingProducts } = useProducts();
+  const { sellers = [], isLoading: loadingSellers } = useSellers();
+
   const [searchTerm, setSearchTerm] = useState("");
   const [isNewEntryDialogOpen, setIsNewEntryDialogOpen] = useState(false);
   const [isClientDialogOpen, setIsClientDialogOpen] = useState(false);
@@ -147,18 +133,24 @@ export default function ServicesPage() {
     discounts: 0
   });
 
+  // Garantindo que services é sempre um array
+  const servicesArray = Array.isArray(services) ? services : [];
+
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
   };
 
   const filterServices = () => {
-    return services.filter(service => {
+    return (servicesArray || []).filter(service => {
+      // Fallback case if service is undefined
+      if (!service) return false;
+      
       const searchMatch = searchTerm ? 
-        service.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        service.client.toLowerCase().includes(searchTerm.toLowerCase()) : 
+        (service.name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) || 
+        (service.client?.toLowerCase() || "").includes(searchTerm.toLowerCase()) : 
         true;
       
-      const dateMatch = filters.date.from && filters.date.to ? 
+      const dateMatch = filters.date?.from && filters.date?.to ? 
         new Date(service.date) >= filters.date.from && new Date(service.date) <= filters.date.to : 
         true;
       
@@ -177,8 +169,13 @@ export default function ServicesPage() {
   const filteredServices = filterServices();
 
   useEffect(() => {
-    const totalValue = filteredServices.reduce((sum, service) => sum + service.value, 0);
-    const totalCommission = filteredServices.reduce((sum, service) => sum + service.commission, 0);
+    if (!Array.isArray(filteredServices)) {
+      console.error("filteredServices não é um array:", filteredServices);
+      return;
+    }
+
+    const totalValue = filteredServices.reduce((sum, service) => sum + (service?.value || 0), 0);
+    const totalCommission = filteredServices.reduce((sum, service) => sum + (service?.commission || 0), 0);
     
     setSummaryData({
       totalValue,
@@ -190,6 +187,8 @@ export default function ServicesPage() {
 
   const getStatusBadge = (status) => {
     const statusOption = statusOptions.find(option => option.value === status);
+    if (!statusOption) return null;
+    
     return (
       <Badge className={`${statusOption?.color} text-white`}>
         {statusOption?.label || status}
@@ -197,15 +196,21 @@ export default function ServicesPage() {
     );
   };
 
-  const handleChangeStatus = (id, newStatus) => {
-    setServices(services.map(service => 
-      service.id === id ? { ...service, status: newStatus } : service
-    ));
-    
-    toast({
-      title: "Status atualizado",
-      description: `O status do serviço foi alterado para ${statusOptions.find(opt => opt.value === newStatus)?.label}.`
-    });
+  const handleChangeStatus = async (id, newStatus) => {
+    try {
+      await toggleStatus({ id, newStatus });
+      
+      toast({
+        title: "Status atualizado",
+        description: `O status do serviço foi alterado para ${statusOptions.find(opt => opt.value === newStatus)?.label}.`
+      });
+    } catch (error) {
+      toast({
+        title: "Erro ao atualizar status",
+        description: "Ocorreu um erro ao atualizar o status. Tente novamente.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleAddLineItem = () => {
@@ -240,7 +245,7 @@ export default function ServicesPage() {
         
         if (field === 'product') {
           const selectedProduct = products.find(p => p.id.toString() === value);
-          updatedItem.unitPrice = selectedProduct ? selectedProduct.value : 0;
+          updatedItem.unitPrice = selectedProduct ? selectedProduct.price : 0;
           updatedItem.total = updatedItem.unitPrice * updatedItem.quantity;
         } else if (field === 'quantity') {
           updatedItem.total = updatedItem.unitPrice * value;
@@ -256,7 +261,7 @@ export default function ServicesPage() {
     return lineItems.reduce((sum, item) => sum + item.total, 0);
   };
 
-  const handleSaveNewEntry = () => {
+  const handleSaveNewEntry = async () => {
     if (!selectedClient || lineItems.some(item => !item.product)) {
       toast({
         title: "Campos obrigatórios",
@@ -266,31 +271,39 @@ export default function ServicesPage() {
       return;
     }
 
-    const clientName = clients.find(c => c.id.toString() === selectedClient)?.name || "";
-    const sellerName = sellers.find(s => s.id.toString() === selectedSeller)?.name || "";
+    try {
+      const clientName = clients.find(c => c.id.toString() === selectedClient)?.name || "";
+      const sellerName = sellers.find(s => s.id.toString() === selectedSeller)?.name || "";
+      const total = calculateTotal();
+      
+      const newService = {
+        name: lineItems.map(item => products.find(p => p.id.toString() === item.product)?.name).join(", "),
+        client: clientName,
+        value: total,
+        date: new Date().toISOString().split('T')[0],
+        commission: total * 0.10,
+        status: "Pending",
+        seller: sellerName
+      };
 
-    const newService = {
-      id: services.length + 1,
-      name: lineItems.map(item => products.find(p => p.id.toString() === item.product)?.name).join(", "),
-      client: clientName,
-      value: calculateTotal(),
-      date: new Date().toISOString().split('T')[0],
-      commission: calculateTotal() * 0.10,
-      status: "Pending",
-      seller: sellerName
-    };
+      await addService(newService);
+      setIsNewEntryDialogOpen(false);
+      
+      setSelectedClient("");
+      setSelectedSeller("");
+      setLineItems([{ id: 1, product: "", quantity: 1, unitPrice: 0, total: 0 }]);
 
-    setServices([...services, newService]);
-    setIsNewEntryDialogOpen(false);
-    
-    setSelectedClient("");
-    setSelectedSeller("");
-    setLineItems([{ id: 1, product: "", quantity: 1, unitPrice: 0, total: 0 }]);
-
-    toast({
-      title: "Serviço registrado",
-      description: "O serviço foi adicionado com sucesso."
-    });
+      toast({
+        title: "Serviço registrado",
+        description: "O serviço foi adicionado com sucesso."
+      });
+    } catch (error) {
+      toast({
+        title: "Erro ao registrar serviço",
+        description: "Ocorreu um erro ao registrar o serviço. Tente novamente.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleSaveNewClient = () => {
@@ -322,21 +335,29 @@ export default function ServicesPage() {
     });
   };
 
-  const handleCloneService = (id) => {
-    const serviceToClone = services.find(service => service.id === id);
-    if (serviceToClone) {
-      const clonedService = {
-        ...serviceToClone,
-        id: services.length + 1,
-        date: new Date().toISOString().split('T')[0],
-        status: "Pending"
-      };
-      
-      setServices([...services, clonedService]);
-      
+  const handleCloneService = async (serviceToClone) => {
+    try {
+      if (serviceToClone) {
+        const { id, ...serviceData } = serviceToClone;
+        
+        const clonedService = {
+          ...serviceData,
+          date: new Date().toISOString().split('T')[0],
+          status: "Pending"
+        };
+        
+        await addService(clonedService);
+        
+        toast({
+          title: "Serviço clonado",
+          description: "Uma cópia do serviço foi criada com sucesso."
+        });
+      }
+    } catch (error) {
       toast({
-        title: "Serviço clonado",
-        description: "Uma cópia do serviço foi criada com sucesso."
+        title: "Erro ao clonar serviço",
+        description: "Ocorreu um erro ao clonar o serviço. Tente novamente.",
+        variant: "destructive"
       });
     }
   };
@@ -415,6 +436,14 @@ export default function ServicesPage() {
     });
     setOpenStatusPopover(false);
   };
+
+  if (loadingServices || loadingProducts || loadingSellers) {
+    return <div className="p-8 text-center">Carregando dados...</div>;
+  }
+
+  // Garantindo que services, products e sellers são arrays
+  const productsArray = Array.isArray(products) ? products : [];
+  const sellersArray = Array.isArray(sellers) ? sellers : [];
 
   return (
     <div>
@@ -575,7 +604,7 @@ export default function ServicesPage() {
                       />
                       <span>Todos</span>
                     </CommandItem>
-                    {sellers && sellers.length > 0 ? sellers.map((seller) => (
+                    {sellersArray && sellersArray.length > 0 ? sellersArray.map((seller) => (
                       <CommandItem
                         key={seller.id}
                         onSelect={() => updateSellerFilter(seller.name)}
@@ -620,7 +649,7 @@ export default function ServicesPage() {
                       />
                       <span>Todos</span>
                     </CommandItem>
-                    {products && products.length > 0 ? products.map((product) => (
+                    {productsArray && productsArray.length > 0 ? productsArray.map((product) => (
                       <CommandItem
                         key={product.id}
                         onSelect={() => updateProductFilter(product.name)}
@@ -779,7 +808,7 @@ export default function ServicesPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleCloneService(service.id)}>
+                          <DropdownMenuItem onClick={() => handleCloneService(service)}>
                             <Copy className="mr-2 h-4 w-4" />
                             <span>Clonar</span>
                           </DropdownMenuItem>
@@ -812,6 +841,7 @@ export default function ServicesPage() {
         <DialogContent className="sm:max-w-[700px]">
           <DialogHeader>
             <DialogTitle>Novo Registro de Serviço</DialogTitle>
+            <DialogDescription>Cadastre um novo serviço prestado para um cliente.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-6 py-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -875,7 +905,7 @@ export default function ServicesPage() {
                       className="w-full justify-between"
                     >
                       {selectedSeller
-                        ? sellers.find((seller) => seller.id.toString() === selectedSeller)?.name
+                        ? sellersArray.find((seller) => seller.id.toString() === selectedSeller)?.name
                         : "Selecione o vendedor (opcional)"}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
@@ -885,7 +915,7 @@ export default function ServicesPage() {
                       <CommandInput placeholder="Buscar vendedor..." />
                       <CommandEmpty>Nenhum vendedor encontrado.</CommandEmpty>
                       <CommandGroup>
-                        {sellers && sellers.length > 0 ? sellers.map((seller) => (
+                        {sellersArray && sellersArray.length > 0 ? sellersArray.map((seller) => (
                           <CommandItem
                             key={seller.id}
                             value={seller.name}
@@ -941,9 +971,9 @@ export default function ServicesPage() {
                               <SelectValue placeholder="Selecione" />
                             </SelectTrigger>
                             <SelectContent>
-                              {products.map(product => (
+                              {productsArray.map(product => (
                                 <SelectItem key={product.id} value={product.id.toString()}>
-                                  {product.name} - R$ {product.value.toFixed(2)}
+                                  {product.name} - R$ {product.price?.toFixed(2) || "0.00"}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -998,6 +1028,7 @@ export default function ServicesPage() {
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Cadastrar Novo Cliente</DialogTitle>
+            <DialogDescription>Preencha os dados para cadastrar um novo cliente.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
