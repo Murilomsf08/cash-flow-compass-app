@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import {
   Card,
@@ -421,6 +422,157 @@ export default function ExpensesPage() {
     );
   }
 
+  const validExpenses = Array.isArray(filteredExpenses) ? filteredExpenses : [];
+  const totalExpense = validExpenses.reduce((acc, e) => acc + (e.value || 0), 0);
+
+  const expensesByCategory = validExpenses.reduce((acc: any, expense: any) => {
+    if (acc[expense.category]) acc[expense.category] += expense.value;
+    else acc[expense.category] = expense.value;
+    return acc;
+  }, {});
+
+  const monthlyExpenses = validExpenses.reduce((acc: any, expense: any) => {
+    const month = format(parseISO(expense.date), "MMMM", { locale: ptBR });
+    if (acc[month]) acc[month] += expense.value;
+    else acc[month] = expense.value;
+    return acc;
+  }, {});
+  
+  const chartData = Object.entries(monthlyExpenses).map(([month, value]) => ({
+    month,
+    value,
+  }));
+
+  const currentMonth = format(new Date(), "MMMM", { locale: ptBR });
+  const totalForMonth = validExpenses.reduce((acc, expense) => {
+    const month = format(parseISO(expense.date), "MMMM", { locale: ptBR });
+    if (month === currentMonth) acc += expense.value;
+    return acc;
+  }, 0);
+
+  const statusData = validExpenses.reduce((acc: any, expense: any) => {
+    if (!acc[expense.status]) acc[expense.status] = 0;
+    acc[expense.status] += 1;
+    return acc;
+  }, {});
+
+  async function handleAddExpense() {
+    if (multiExpenses.length > 0) {
+      try {
+        await addMultipleExpenses(multiExpenses);
+        toast({
+          title: "Sucesso",
+          description: `${multiExpenses.length} despesas adicionadas!`,
+        });
+        setMultiExpenses([]);
+        setOpen(false);
+        resetFormFields();
+        return;
+      } catch (err: any) {
+        toast({
+          title: "Erro",
+          description: err.message || "Falha ao salvar as despesas.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    if (!selectedDate || !category || !description || !value || !status) {
+      toast({
+        title: "Erro",
+        description: "Preencha todos os campos.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const valueNum = parseFloat(value);
+
+      if (isParceled && installments > 1) {
+        const installmentValue = valueNum / installments;
+        const expensesArray = [];
+
+        for (let i = 0; i < installments; i++) {
+          const installmentDate = new Date(selectedDate);
+          installmentDate.setMonth(installmentDate.getMonth() + i);
+
+          expensesArray.push({
+            date: installmentDate.toISOString(),
+            category,
+            description: `${description} (${i + 1}/${installments})`,
+            value: installmentValue,
+            status: i === 0 ? status : EXPENSE_STATUS.PENDENTE,
+            paymentType: "Parcelado",
+            installment: i + 1,
+            totalInstallments: installments,
+          });
+        }
+
+        await addMultipleExpenses(expensesArray);
+        toast({
+          title: "Sucesso",
+          description: `${installments} parcelas adicionadas com sucesso.`,
+        });
+      } else {
+        await addExpense({
+          date: selectedDate.toISOString(),
+          category,
+          description,
+          value: valueNum,
+          status,
+          paymentType: isParceled ? "Parcelado" : "À Vista",
+        });
+        toast({
+          title: "Sucesso",
+          description: "Despesa adicionada com sucesso.",
+        });
+      }
+
+      setOpen(false);
+      resetFormFields();
+    } catch (err: any) {
+      toast({
+        title: "Erro",
+        description: err.message || "Falha ao salvar a despesa.",
+        variant: "destructive",
+      });
+    }
+  }
+
+  useEffect(() => {
+    if (!expenses || !Array.isArray(expenses)) return;
+
+    let filtered = [...expenses];
+
+    if (dateRange.from && dateRange.to) {
+      filtered = filtered.filter((expense) => {
+        const expenseDate = parseISO(expense.date);
+        return isWithinInterval(expenseDate, {
+          start: dateRange.from,
+          end: dateRange.to,
+        });
+      });
+    }
+
+    if (categoryFilter) {
+      filtered = filtered.filter((expense) => expense.category === categoryFilter);
+    }
+
+    if (descriptionFilter) {
+      filtered = filtered.filter((expense) => 
+        expense.description.toLowerCase().includes(descriptionFilter.toLowerCase())
+      );
+    }
+
+    if (statusFilter) {
+      filtered = filtered.filter((expense) => expense.status === statusFilter);
+    }
+
+    setFilteredExpenses(filtered);
+  }, [expenses, dateRange, categoryFilter, descriptionFilter, statusFilter]);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4">
@@ -758,8 +910,7 @@ export default function ExpensesPage() {
                         <span>{expense.totalInstallments}x de R$ {expense.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                       </div>
                     </div>
-                  ))
-                }
+                  ))}
               </div>
             ) : (
               <p className="text-muted-foreground">Nenhuma despesa parcelada registrada.</p>
@@ -915,4 +1066,179 @@ export default function ExpensesPage() {
               </div>
             )}
             <div className="flex justify-between items-center">
-              <Button type="button" variant
+              <Button 
+                type="button" 
+                variant="outline"
+                onClick={handleAddMultiItem}
+              >
+                Adicionar mais um item
+              </Button>
+              <DialogFooter className="sm:justify-end">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setOpen(false)}
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  type="button" 
+                  onClick={handleAddExpense}
+                >
+                  {multiExpenses.length > 0 ? 'Salvar todos' : 'Salvar'}
+                </Button>
+              </DialogFooter>
+            </div>
+            {multiExpenses.length > 0 && (
+              <div className="mt-4">
+                <h4 className="text-sm font-medium mb-2">Itens adicionados ({multiExpenses.length})</h4>
+                <div className="max-h-40 overflow-y-auto border rounded">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Descrição</TableHead>
+                        <TableHead>Valor</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {multiExpenses.map((expense, index) => (
+                        <TableRow key={index}>
+                          <TableCell>{expense.description}</TableCell>
+                          <TableCell>R$ {expense.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Editar Despesa</DialogTitle>
+            <DialogDescription>
+              Altere as informações da despesa.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-date" className="text-right">
+                Data
+              </Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "w-[180px] pl-3 text-left font-normal",
+                      !selectedDate && "text-muted-foreground"
+                    )}
+                  >
+                    {selectedDate ? (
+                      format(selectedDate, "PP", { locale: ptBR })
+                    ) : (
+                      <span>Selecione a data</span>
+                    )}
+                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    locale={ptBR}
+                    selected={selectedDate}
+                    onSelect={setSelectedDate}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-category" className="text-right">
+                Categoria
+              </Label>
+              <Select
+                value={category}
+                onValueChange={setCategory}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Selecione uma categoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  {MOCK_EXPENSE_CATEGORIES.map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-description" className="text-right">
+                Descrição
+              </Label>
+              <Input
+                id="edit-description"
+                className="col-span-3"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-value" className="text-right">
+                Valor
+              </Label>
+              <Input
+                id="edit-value"
+                type="number"
+                step="0.01"
+                min="0"
+                className="col-span-3"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-status" className="text-right">
+                Status
+              </Label>
+              <Select
+                value={status}
+                onValueChange={setStatus}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={EXPENSE_STATUS.PAGO}>Pago</SelectItem>
+                  <SelectItem value={EXPENSE_STATUS.PENDENTE}>Pendente</SelectItem>
+                  <SelectItem value={EXPENSE_STATUS.CANCELADO}>Cancelado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setEditOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                type="button" 
+                onClick={handleUpdateExpense}
+              >
+                Salvar alterações
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
