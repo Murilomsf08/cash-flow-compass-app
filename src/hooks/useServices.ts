@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getServices,
@@ -6,8 +5,8 @@ import {
   updateService,
   deleteService,
   toggleServiceStatus,
-  ServiceDB,
 } from "@/services/servicesService";
+import type { ServiceDB } from "@/services/types/serviceTypes";
 
 export function useServices() {
   const queryClient = useQueryClient();
