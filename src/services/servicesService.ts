@@ -1,7 +1,8 @@
 
-import { supabase, isSupabaseConfigured } from './config/supabaseConfig';
+import { supabase, isSupabaseConfigured, handleSupabaseError } from './config/supabaseConfig';
 import { ServiceDB, mockServices } from './types/serviceTypes';
 import { initializeServicesTable, seedInitialServices } from './database/initializeDb';
+import { toast } from "@/hooks/use-toast";
 
 // Initialize the database
 initializeServicesTable();
@@ -19,17 +20,20 @@ export async function getServices(): Promise<ServiceDB[]> {
       .order('date', { ascending: false });
     
     if (error) {
-      console.error('Erro ao buscar serviços:', error);
-      throw error;
+      return handleSupabaseError(error, 'buscar serviços');
     }
     
     if (!data || data.length === 0) {
       console.log('Nenhum serviço encontrado no banco de dados.');
       await seedInitialServices();
-      const { data: seededData } = await supabase
+      const { data: seededData, error: seedError } = await supabase
         .from('services')
         .select('*')
         .order('date', { ascending: false });
+      
+      if (seedError) {
+        return handleSupabaseError(seedError, 'buscar serviços iniciais');
+      }
         
       return seededData || [];
     }
@@ -37,6 +41,11 @@ export async function getServices(): Promise<ServiceDB[]> {
     return data as ServiceDB[];
   } catch (error) {
     console.error('Erro ao buscar serviços, usando dados mock:', error);
+    toast({
+      title: "Erro ao carregar serviços",
+      description: "Usando dados locais temporariamente. Por favor, verifique sua conexão.",
+      variant: "destructive",
+    });
     return [...mockServices];
   }
 }
@@ -49,6 +58,11 @@ export async function addService(service: Omit<ServiceDB, 'id'>): Promise<Servic
       ...service,
     };
     mockServices.push(newService);
+    toast({
+      title: "Serviço adicionado (modo simulado)",
+      description: "O serviço foi salvo localmente, mas não no banco de dados.",
+      variant: "default",
+    });
     return { ...newService };
   }
 
@@ -59,14 +73,17 @@ export async function addService(service: Omit<ServiceDB, 'id'>): Promise<Servic
       .select();
     
     if (error) {
-      console.error('Erro ao adicionar serviço:', error);
-      throw error;
+      return handleSupabaseError(error, 'adicionar serviço');
     }
+    
+    toast({
+      title: "Serviço adicionado",
+      description: "O serviço foi cadastrado com sucesso.",
+    });
     
     return data?.[0] as ServiceDB;
   } catch (error) {
-    console.error('Erro ao adicionar serviço:', error);
-    throw error;
+    return handleSupabaseError(error, 'adicionar serviço');
   }
 }
 
@@ -79,8 +96,17 @@ export async function updateService(
     const index = mockServices.findIndex(p => p.id === id);
     if (index >= 0) {
       mockServices[index] = { ...mockServices[index], ...service };
+      toast({
+        title: "Serviço atualizado (modo simulado)",
+        description: "O serviço foi atualizado localmente, mas não no banco de dados.",
+      });
       return { ...mockServices[index] };
     }
+    toast({
+      title: "Erro",
+      description: "Serviço não encontrado.",
+      variant: "destructive",
+    });
     throw new Error('Serviço não encontrado');
   }
 
@@ -93,14 +119,17 @@ export async function updateService(
       .single();
     
     if (error) {
-      console.error('Erro ao atualizar serviço:', error);
-      throw error;
+      return handleSupabaseError(error, 'atualizar serviço');
     }
+    
+    toast({
+      title: "Serviço atualizado",
+      description: "O serviço foi atualizado com sucesso.",
+    });
     
     return data as ServiceDB;
   } catch (error) {
-    console.error('Erro ao atualizar serviço:', error);
-    throw error;
+    return handleSupabaseError(error, 'atualizar serviço');
   }
 }
 
@@ -110,20 +139,33 @@ export async function deleteService(id: number): Promise<void> {
     const index = mockServices.findIndex(p => p.id === id);
     if (index >= 0) {
       mockServices.splice(index, 1);
+      toast({
+        title: "Serviço removido (modo simulado)",
+        description: "O serviço foi removido localmente, mas não no banco de dados.",
+      });
       return;
     }
+    toast({
+      title: "Erro",
+      description: "Serviço não encontrado.",
+      variant: "destructive",
+    });
     throw new Error('Serviço não encontrado');
   }
 
   try {
     const { error } = await supabase.from('services').delete().eq('id', id);
     if (error) {
-      console.error('Erro ao deletar serviço:', error);
-      throw error;
+      handleSupabaseError(error, 'deletar serviço');
+      return;
     }
+    
+    toast({
+      title: "Serviço removido",
+      description: "O serviço foi removido com sucesso.",
+    });
   } catch (error) {
-    console.error('Erro ao deletar serviço:', error);
-    throw error;
+    handleSupabaseError(error, 'deletar serviço');
   }
 }
 

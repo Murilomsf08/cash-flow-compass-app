@@ -7,10 +7,19 @@ import {
   deleteService,
   toggleServiceStatus,
 } from "@/services/servicesService";
-import type { ServiceDB } from "@/services/types/serviceTypes";
+import type { ServiceDB } from '@/services/types/serviceTypes';
+import { toast } from "@/hooks/use-toast";
+import { validateSupabaseConnection } from "@/services/config/supabaseConfig";
 
 export function useServices() {
   const queryClient = useQueryClient();
+
+  // Validar conexão com Supabase
+  const { data: isConnected } = useQuery({
+    queryKey: ["supabase-connection"],
+    queryFn: validateSupabaseConnection,
+    staleTime: 1000 * 60 * 10, // 10 minutos
+  });
 
   // Listar serviços
   const {
@@ -33,6 +42,13 @@ export function useServices() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["services"] });
     },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao adicionar serviço",
+        description: error.message || "Ocorreu um erro ao adicionar o serviço.",
+        variant: "destructive",
+      });
+    },
   });
 
   // Editar serviço
@@ -42,6 +58,13 @@ export function useServices() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["services"] });
     },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao atualizar serviço",
+        description: error.message || "Ocorreu um erro ao atualizar o serviço.",
+        variant: "destructive",
+      });
+    },
   });
 
   // Excluir
@@ -49,6 +72,13 @@ export function useServices() {
     mutationFn: deleteService,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["services"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao excluir serviço",
+        description: error.message || "Ocorreu um erro ao excluir o serviço.",
+        variant: "destructive",
+      });
     },
   });
 
@@ -58,6 +88,13 @@ export function useServices() {
       toggleServiceStatus(id, newStatus),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["services"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao alterar status",
+        description: error.message || "Ocorreu um erro ao alterar o status do serviço.",
+        variant: "destructive",
+      });
     },
   });
 
@@ -69,6 +106,7 @@ export function useServices() {
     isLoading,
     error,
     refetch,
+    isConnected,
     addService: addServiceMutation.mutateAsync,
     adding: addServiceMutation.isPending,
     updateService: updateServiceMutation.mutateAsync,
