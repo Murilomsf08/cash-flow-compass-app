@@ -135,7 +135,7 @@ export default function ServicesPage() {
   const productsArray = Array.isArray(products) ? products : [];
   const sellersArray = Array.isArray(sellers) ? sellers : [];
 
-  const renderClientsList = clients;
+  const renderClientsList = clients || [];
   const renderSellersArray = Array.isArray(sellersArray) ? sellersArray : [];
   const renderProductsArray = Array.isArray(productsArray) ? productsArray : [];
 
@@ -918,7 +918,7 @@ export default function ServicesPage() {
                       <CommandInput placeholder="Buscar vendedor..." />
                       <CommandEmpty>Nenhum vendedor encontrado.</CommandEmpty>
                       <CommandGroup>
-                        {renderSellersArray && renderSellersArray.map((seller) => (
+                        {renderSellersArray && renderSellersArray.length > 0 ? renderSellersArray.map((seller) => (
                           <CommandItem
                             key={seller.id}
                             value={seller.name}
@@ -935,7 +935,9 @@ export default function ServicesPage() {
                             />
                             {seller.name}
                           </CommandItem>
-                        ))}
+                        )) : (
+                          <CommandItem>Nenhum vendedor disponível</CommandItem>
+                        )}
                       </CommandGroup>
                     </Command>
                   </PopoverContent>
