@@ -142,6 +142,7 @@ export default function ServicesPage() {
   const renderClientsList = clients || [];
   const renderSellersArray = sellersArray || [];
   const renderProductsArray = productsArray || [];
+  const renderStatusOptions = statusOptions || [];
 
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
@@ -568,7 +569,7 @@ export default function ServicesPage() {
                       />
                       <span>Todos</span>
                     </CommandItem>
-                    {renderClientsList && renderClientsList.map((client) => (
+                    {renderClientsList.map((client) => (
                       <CommandItem
                         key={client.id}
                         onSelect={() => updateClientFilter(client.name)}
@@ -613,7 +614,7 @@ export default function ServicesPage() {
                       />
                       <span>Todos</span>
                     </CommandItem>
-                    {renderSellersArray && renderSellersArray.map((seller) => (
+                    {renderSellersArray.map((seller) => (
                       <CommandItem
                         key={seller.id}
                         onSelect={() => updateSellerFilter(seller.name)}
@@ -658,7 +659,7 @@ export default function ServicesPage() {
                       />
                       <span>Todos</span>
                     </CommandItem>
-                    {renderProductsArray && renderProductsArray.map((product) => (
+                    {renderProductsArray.map((product) => (
                       <CommandItem
                         key={product.id}
                         onSelect={() => updateProductFilter(product.name)}
@@ -703,7 +704,7 @@ export default function ServicesPage() {
                       />
                       <span>Todos</span>
                     </CommandItem>
-                    {statusOptions && statusOptions.length > 0 ? statusOptions.map((status) => (
+                    {renderStatusOptions.map((status) => (
                       <CommandItem
                         key={status.value}
                         onSelect={() => updateStatusFilter(status.value)}
@@ -719,7 +720,7 @@ export default function ServicesPage() {
                           {status.label}
                         </div>
                       </CommandItem>
-                    )) : null}
+                    ))}
                   </CommandGroup>
                 </Command>
               </PopoverContent>
@@ -796,7 +797,7 @@ export default function ServicesPage() {
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Alterar status</DropdownMenuLabel>
                           <DropdownMenuSeparator />
-                          {statusOptions && statusOptions.map(option => (
+                          {renderStatusOptions.map(option => (
                             <DropdownMenuItem 
                               key={option.value}
                               onClick={() => handleChangeStatus(service.id, option.value)}
@@ -876,7 +877,7 @@ export default function ServicesPage() {
                         <CommandInput placeholder="Buscar cliente..." />
                         <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
                         <CommandGroup>
-                          {renderClientsList && renderClientsList.map((client) => (
+                          {renderClientsList.map((client) => (
                             <CommandItem
                               key={client.id}
                               value={client.name}
