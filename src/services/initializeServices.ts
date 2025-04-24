@@ -2,7 +2,7 @@
 import { initializeExpensesTable } from './expensesService';
 import { initializeProductsTable } from './productsService';
 import { initializeSellersTable } from './sellersService';
-import { initializeServicesTable } from './servicesService';
+import { initializeServicesTable } from './database/initializeDb'; // Updated import path
 
 export const initializeAllServices = () => {
   // Inicializar todas as tabelas e verificar conexão com o Supabase
