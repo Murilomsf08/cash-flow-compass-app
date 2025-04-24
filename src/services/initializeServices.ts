@@ -1,7 +1,7 @@
 
-import { initializeExpensesTable } from './expensesService';
-import { initializeProductsTable } from './productsService';
-import { initializeSellersTable } from './sellersService';
+import { initializeExpensesTable } from './database/initializeExpensesDb';
+import { initializeProductsTable } from './database/initializeProductsDb';
+import { initializeSellersTable } from './database/initializeSellersDb';
 import { initializeServicesTable } from './database/initializeDb';
 import { validateSupabaseConnection } from './config/supabaseConfig';
 import { toast } from "@/hooks/use-toast";
@@ -14,7 +14,7 @@ export const initializeAllServices = async () => {
     toast({
       title: "Conexão com Supabase",
       description: "Funcionando em modo offline com dados simulados. Conecte ao Supabase para funcionalidade completa.",
-      variant: "warning",
+      variant: "destructive",
     });
   } else {
     toast({
@@ -24,8 +24,8 @@ export const initializeAllServices = async () => {
   }
   
   // Inicializar todas as tabelas
-  initializeExpensesTable();
-  initializeProductsTable();
-  initializeSellersTable();
-  initializeServicesTable();
+  await initializeExpensesTable();
+  await initializeProductsTable();
+  await initializeSellersTable();
+  await initializeServicesTable();
 };
