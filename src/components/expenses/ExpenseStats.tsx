@@ -16,7 +16,7 @@ import {
   Tooltip as RechartsTooltip,
   ResponsiveContainer,
 } from "recharts";
-import { ExpenseDB } from "@/services/expensesService";
+import { ExpenseDB } from "@/services/types/expenseTypes";
 
 interface ExpenseStatsProps {
   expenses: ExpenseDB[];

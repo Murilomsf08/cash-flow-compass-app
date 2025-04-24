@@ -1,11 +1,6 @@
-
 import { supabase, isSupabaseConfigured, handleSupabaseError } from './config/supabaseConfig';
 import { ProductDB, mockProducts } from './types/productTypes';
-import { initializeProductsTable, seedInitialProducts } from './database/initializeProductsDb';
 import { toast } from "@/hooks/use-toast";
-
-// Initialize the database
-initializeProductsTable();
 
 export async function getProducts(): Promise<ProductDB[]> {
   if (!isSupabaseConfigured) {
@@ -23,19 +18,9 @@ export async function getProducts(): Promise<ProductDB[]> {
       return handleSupabaseError(error, 'buscar produtos');
     }
     
-    if (!data || data.length === 0) {
-      await seedInitialProducts();
-      const { data: seededData } = await supabase
-        .from('products')
-        .select('*')
-        .order('name', { ascending: true });
-        
-      return seededData || [];
-    }
-    
-    return data as ProductDB[];
+    return (data || []) as ProductDB[];
   } catch (error) {
-    console.error('Erro ao buscar produtos:', error);
+    console.error('Erro ao buscar produtos, usando dados mock:', error);
     toast({
       title: "Erro ao carregar produtos",
       description: "Usando dados locais temporariamente. Por favor, verifique sua conexão.",
@@ -47,6 +32,7 @@ export async function getProducts(): Promise<ProductDB[]> {
 
 export async function addProduct(product: Omit<ProductDB, 'id'>): Promise<ProductDB> {
   if (!isSupabaseConfigured) {
+    console.warn('Usando dados simulados. Conecte-se ao Supabase para dados reais.');
     const newProduct: ProductDB = {
       id: mockProducts.length + 1,
       ...product,
@@ -54,9 +40,10 @@ export async function addProduct(product: Omit<ProductDB, 'id'>): Promise<Produc
     mockProducts.push(newProduct);
     toast({
       title: "Produto adicionado (modo simulado)",
-      description: "O produto foi salvo localmente.",
+      description: "O produto foi salvo localmente, mas não no banco de dados.",
+      variant: "default",
     });
-    return newProduct;
+    return { ...newProduct };
   }
 
   try {
@@ -85,15 +72,21 @@ export async function updateProduct(
   product: Partial<Omit<ProductDB, 'id'>>
 ): Promise<ProductDB> {
   if (!isSupabaseConfigured) {
+    console.warn('Usando dados simulados. Conecte-se ao Supabase para dados reais.');
     const index = mockProducts.findIndex(p => p.id === id);
     if (index >= 0) {
       mockProducts[index] = { ...mockProducts[index], ...product };
       toast({
         title: "Produto atualizado (modo simulado)",
-        description: "O produto foi atualizado localmente.",
+        description: "O produto foi atualizado localmente, mas não no banco de dados.",
       });
-      return mockProducts[index];
+      return { ...mockProducts[index] };
     }
+    toast({
+      title: "Erro",
+      description: "Produto não encontrado.",
+      variant: "destructive",
+    });
     throw new Error('Produto não encontrado');
   }
 
@@ -122,15 +115,21 @@ export async function updateProduct(
 
 export async function deleteProduct(id: number): Promise<void> {
   if (!isSupabaseConfigured) {
+    console.warn('Usando dados simulados. Conecte-se ao Supabase para dados reais.');
     const index = mockProducts.findIndex(p => p.id === id);
     if (index >= 0) {
       mockProducts.splice(index, 1);
       toast({
         title: "Produto removido (modo simulado)",
-        description: "O produto foi removido localmente.",
+        description: "O produto foi removido localmente, mas não no banco de dados.",
       });
       return;
     }
+    toast({
+      title: "Erro",
+      description: "Produto não encontrado.",
+      variant: "destructive",
+    });
     throw new Error('Produto não encontrado');
   }
 

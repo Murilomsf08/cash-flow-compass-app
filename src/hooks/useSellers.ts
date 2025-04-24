@@ -1,12 +1,11 @@
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getSellers,
   addSeller,
   updateSeller,
   deleteSeller,
-  SellerDB,
 } from "@/services/sellersService";
+import { SellerDB } from "@/services/types/sellerTypes";
 
 export function useSellers() {
   const queryClient = useQueryClient();
@@ -52,7 +51,7 @@ export function useSellers() {
   });
 
   return {
-    sellers,
+    sellers: Array.isArray(sellers) ? sellers : [],
     isLoading,
     error,
     refetch,

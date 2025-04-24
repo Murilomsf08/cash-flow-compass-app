@@ -1,11 +1,6 @@
-
 import { supabase, isSupabaseConfigured, handleSupabaseError } from './config/supabaseConfig';
 import { ExpenseDB, mockExpenses } from './types/expenseTypes';
-import { initializeExpensesTable, seedInitialExpenses } from './database/initializeExpensesDb';
 import { toast } from "@/hooks/use-toast";
-
-// Initialize the database
-initializeExpensesTable();
 
 export async function getExpenses(): Promise<ExpenseDB[]> {
   if (!isSupabaseConfigured) {
@@ -23,19 +18,9 @@ export async function getExpenses(): Promise<ExpenseDB[]> {
       return handleSupabaseError(error, 'buscar despesas');
     }
     
-    if (!data || data.length === 0) {
-      await seedInitialExpenses();
-      const { data: seededData } = await supabase
-        .from('expenses')
-        .select('*')
-        .order('date', { ascending: false });
-        
-      return seededData || [];
-    }
-    
-    return data as ExpenseDB[];
+    return (data as ExpenseDB[]) || [];
   } catch (error) {
-    console.error('Erro ao buscar despesas:', error);
+    console.error('Erro ao buscar despesas, usando dados mock:', error);
     toast({
       title: "Erro ao carregar despesas",
       description: "Usando dados locais temporariamente. Por favor, verifique sua conexão.",
@@ -47,6 +32,7 @@ export async function getExpenses(): Promise<ExpenseDB[]> {
 
 export async function addExpense(expense: Omit<ExpenseDB, 'id'>): Promise<ExpenseDB> {
   if (!isSupabaseConfigured) {
+    console.warn('Usando dados simulados. Conecte-se ao Supabase para dados reais.');
     const newExpense: ExpenseDB = {
       id: mockExpenses.length + 1,
       ...expense,
@@ -54,9 +40,10 @@ export async function addExpense(expense: Omit<ExpenseDB, 'id'>): Promise<Expens
     mockExpenses.push(newExpense);
     toast({
       title: "Despesa adicionada (modo simulado)",
-      description: "A despesa foi salva localmente.",
+      description: "A despesa foi salva localmente, mas não no banco de dados.",
+      variant: "default",
     });
-    return newExpense;
+    return { ...newExpense };
   }
 
   try {
@@ -82,19 +69,18 @@ export async function addExpense(expense: Omit<ExpenseDB, 'id'>): Promise<Expens
 
 export async function addMultipleExpenses(expenses: Omit<ExpenseDB, 'id'>[]): Promise<ExpenseDB[]> {
   if (!isSupabaseConfigured) {
-    const newExpenses = expenses.map((expense, index) => {
-      const newExpense: ExpenseDB = {
-        id: mockExpenses.length + 1 + index,
-        ...expense,
-      };
-      mockExpenses.push(newExpense);
-      return newExpense;
-    });
+    console.warn('Usando dados simulados. Conecte-se ao Supabase para dados reais.');
+    const newExpenses: ExpenseDB[] = expenses.map((expense, index) => ({
+      id: mockExpenses.length + index + 1,
+      ...expense,
+    }));
+    mockExpenses.push(...newExpenses);
     toast({
       title: "Despesas adicionadas (modo simulado)",
-      description: "As despesas foram salvas localmente.",
+      description: "As despesas foram salvas localmente, mas não no banco de dados.",
+      variant: "default",
     });
-    return newExpenses;
+    return [...newExpenses];
   }
 
   try {
@@ -123,15 +109,21 @@ export async function updateExpense(
   expense: Partial<Omit<ExpenseDB, 'id'>>
 ): Promise<ExpenseDB> {
   if (!isSupabaseConfigured) {
-    const index = mockExpenses.findIndex(e => e.id === id);
+    console.warn('Usando dados simulados. Conecte-se ao Supabase para dados reais.');
+    const index = mockExpenses.findIndex(p => p.id === id);
     if (index >= 0) {
       mockExpenses[index] = { ...mockExpenses[index], ...expense };
       toast({
         title: "Despesa atualizada (modo simulado)",
-        description: "A despesa foi atualizada localmente.",
+        description: "A despesa foi atualizada localmente, mas não no banco de dados.",
       });
-      return mockExpenses[index];
+      return { ...mockExpenses[index] };
     }
+    toast({
+      title: "Erro",
+      description: "Despesa não encontrada.",
+      variant: "destructive",
+    });
     throw new Error('Despesa não encontrada');
   }
 
@@ -160,15 +152,21 @@ export async function updateExpense(
 
 export async function deleteExpense(id: number): Promise<void> {
   if (!isSupabaseConfigured) {
-    const index = mockExpenses.findIndex(e => e.id === id);
+    console.warn('Usando dados simulados. Conecte-se ao Supabase para dados reais.');
+    const index = mockExpenses.findIndex(p => p.id === id);
     if (index >= 0) {
       mockExpenses.splice(index, 1);
       toast({
         title: "Despesa removida (modo simulado)",
-        description: "A despesa foi removida localmente.",
+        description: "A despesa foi removida localmente, mas não no banco de dados.",
       });
       return;
     }
+    toast({
+      title: "Erro",
+      description: "Despesa não encontrada.",
+      variant: "destructive",
+    });
     throw new Error('Despesa não encontrada');
   }
 
@@ -188,42 +186,6 @@ export async function deleteExpense(id: number): Promise<void> {
   }
 }
 
-export async function toggleExpenseStatus(
-  id: number,
-  newStatus: string
-): Promise<ExpenseDB> {
-  if (!isSupabaseConfigured) {
-    const index = mockExpenses.findIndex(e => e.id === id);
-    if (index >= 0) {
-      mockExpenses[index].status = newStatus;
-      toast({
-        title: "Status atualizado (modo simulado)",
-        description: "O status foi atualizado localmente.",
-      });
-      return mockExpenses[index];
-    }
-    throw new Error('Despesa não encontrada');
-  }
-
-  try {
-    const { data, error } = await supabase
-      .from('expenses')
-      .update({ status: newStatus })
-      .eq('id', id)
-      .select()
-      .single();
-    
-    if (error) {
-      return handleSupabaseError(error, 'alterar status da despesa');
-    }
-    
-    toast({
-      title: "Status atualizado",
-      description: "O status da despesa foi atualizado com sucesso.",
-    });
-    
-    return data as ExpenseDB;
-  } catch (error) {
-    return handleSupabaseError(error, 'alterar status da despesa');
-  }
+export async function toggleExpenseStatus(id: number, newStatus: string): Promise<ExpenseDB> {
+  return updateExpense(id, { status: newStatus });
 }

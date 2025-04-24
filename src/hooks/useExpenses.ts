@@ -7,15 +7,15 @@ import {
   updateExpense,
   deleteExpense,
   toggleExpenseStatus,
-  ExpenseDB,
 } from "@/services/expensesService";
+import { ExpenseDB } from "@/services/types/expenseTypes";
 
 export function useExpenses() {
   const queryClient = useQueryClient();
 
   // Listar despesas
   const {
-    data: expenses,
+    data: expenses = [],
     isLoading,
     error,
     refetch,
@@ -71,7 +71,7 @@ export function useExpenses() {
   });
 
   return {
-    expenses,
+    expenses: Array.isArray(expenses) ? expenses : [],
     isLoading,
     error,
     refetch,

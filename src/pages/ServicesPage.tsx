@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
@@ -66,6 +67,7 @@ import { useServices } from "@/hooks/useServices";
 import { useProducts } from "@/hooks/useProducts";
 import { useSellers } from "@/hooks/useSellers";
 
+// Define a safe clients array to avoid undefined issues
 const clients = [
   { id: 1, name: "Empresa A", email: "contato@empresaa.com" },
   { id: 2, name: "Empresa B", email: "contato@empresab.com" },
@@ -131,19 +133,22 @@ export default function ServicesPage() {
     discounts: 0
   });
 
+  // Ensure arrays are always arrays, not undefined
   const servicesArray = Array.isArray(services) ? services : [];
   const productsArray = Array.isArray(products) ? products : [];
   const sellersArray = Array.isArray(sellers) ? sellers : [];
 
+  // Create safe references for all arrays used in iterative components
   const renderClientsList = clients || [];
-  const renderSellersArray = Array.isArray(sellersArray) ? sellersArray : [];
-  const renderProductsArray = Array.isArray(productsArray) ? productsArray : [];
+  const renderSellersArray = sellersArray || [];
+  const renderProductsArray = productsArray || [];
 
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
   };
 
   const filterServices = () => {
+    // Make sure we're always working with an array
     return (servicesArray || []).filter(service => {
       if (!service) return false;
       
@@ -171,6 +176,7 @@ export default function ServicesPage() {
   const filteredServices = filterServices();
 
   useEffect(() => {
+    // Double check that filteredServices is an array
     if (!Array.isArray(filteredServices)) {
       console.error("filteredServices não é um array:", filteredServices);
       return;

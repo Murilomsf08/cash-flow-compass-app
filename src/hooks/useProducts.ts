@@ -1,12 +1,11 @@
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getProducts,
   addProduct,
   updateProduct,
   deleteProduct,
-  ProductDB,
 } from "@/services/productsService";
+import { ProductDB } from "@/services/types/productTypes";
 
 export function useProducts() {
   const queryClient = useQueryClient();
@@ -52,7 +51,7 @@ export function useProducts() {
   });
 
   return {
-    products,
+    products: Array.isArray(products) ? products : [],
     isLoading,
     error,
     refetch,
